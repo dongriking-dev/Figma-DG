@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FigmaDG - FigJam風 + Script</title>
+<title>FigmaDG - FigJam風</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -49,6 +49,14 @@
   }
   #toolbar button.active { background: #0d99ff; border-color: #0d99ff; }
   #toolbar button:hover { background: #4a4a4a; }
+  #toolbar input { cursor: text; }
+  #toolbar .coord-display {
+    background: #1a1a1a; color: #0d99ff;
+    font-family: monospace; font-size: 12px;
+    padding: 5px 10px; border-radius: 4px;
+    border: 1px solid #444;
+    min-width: 130px; text-align: center;
+  }
 
   #main { flex: 1; display: flex; overflow: hidden; position: relative; }
 
@@ -60,31 +68,80 @@
     background-size: 24px 24px;
   }
 
-  /* ===== 要素 ===== */
+  /* ===== 要素共通 ===== */
   .element {
-    position: absolute; user-select: none; cursor: move;
+    position: absolute; user-select: none;
     transition: box-shadow 0.15s;
   }
-  .element:hover { box-shadow: 0 0 0 2px rgba(13,153,255,0.3); }
-  .element.selected { box-shadow: 0 0 0 3px #0d99ff, 0 4px 12px rgba(0,0,0,0.15); }
+  .element:hover:not(.has-script) {
+    box-shadow: 0 0 0 2px rgba(13,153,255,0.3);
+  }
+  .element.selected {
+    box-shadow: 0 0 0 3px #0d99ff, 0 4px 12px rgba(0,0,0,0.15);
+  }
 
-  /* スクリプト要素はiframeで表示 */
+  /* スクリプト要素: フレーム表示を強化 */
   .element.has-script {
     padding: 0 !important;
     background: transparent !important;
     overflow: visible !important;
   }
-  .element.has-script .script-frame {
-    width: 100%; height: 100%;
-    border: none;
-    display: block;
-    background: transparent;
-    pointer-events: auto;
+  .element.has-script::before {
+    content: '';
+    position: absolute; inset: -2px;
+    border: 2px dashed transparent;
+    border-radius: 4px;
+    pointer-events: none;
+    transition: border-color 0.15s;
+    z-index: 4;
   }
+  .element.has-script:hover::before {
+    border-color: rgba(13,153,255,0.5);
+  }
+  .element.has-script.selected::before {
+    border-color: #0d99ff;
+    border-style: solid;
+  }
+
+  /* スクリプト要素のドラッグバー（上部） */
+  .element.has-script .drag-bar {
+    position: absolute;
+    top: -22px; left: 0; right: 0;
+    height: 20px;
+    background: rgba(13,153,255,0.9);
+    color: white;
+    border-radius: 4px 4px 0 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+    cursor: move;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 8;
+    white-space: nowrap; overflow: hidden;
+    padding: 0 8px;
+  }
+  .element.has-script:hover .drag-bar,
+  .element.has-script.selected .drag-bar {
+    opacity: 1;
+  }
+
   .element.has-script .script-wrapper {
     width: 100%; height: 100%;
     display: block;
     background: transparent;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .element.has-script .script-frame {
+    width: 100%; height: 100%;
+    border: none; display: block;
+    background: transparent;
+    pointer-events: auto;
+  }
+
+  /* iframeを操作中のときはiframeを無効化（ドラッグ用） */
+  .element.has-script.dragging .script-frame {
+    pointer-events: none;
   }
 
   .element .resize-handle {
@@ -104,12 +161,11 @@
     background: #c0392b; color: white; border: 2px solid white;
     font-size: 12px; line-height: 1; cursor: pointer;
     display: none; align-items: center; justify-content: center;
-    font-weight: bold; z-index: 6;
+    font-weight: bold; z-index: 9;
   }
   .element.selected .delete-btn { display: flex; }
   .element .delete-btn:hover { background: #e74c3c; }
 
-  /* スクリプト有効マーク */
   .element .script-badge {
     position: absolute; top: -10px; left: -10px;
     width: 20px; height: 20px; border-radius: 50%;
@@ -120,6 +176,28 @@
     pointer-events: none;
   }
 
+  /* 要素の名前ラベル */
+  .element .name-label {
+    position: absolute;
+    top: -20px; left: 0;
+    background: #0d99ff; color: white;
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+    display: none;
+    max-width: 200px; overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 6;
+  }
+  .element.has-name .name-label,
+  .element.selected .name-label {
+    display: block;
+  }
+  .element.has-name:hover .name-label {
+    display: block;
+  }
+
   /* ===== 要素タイプ ===== */
   .el-sticky {
     width: 180px; height: 180px;
@@ -127,18 +205,27 @@
     box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
     font-size: 14px; line-height: 1.4;
     overflow: hidden; word-wrap: break-word; outline: none;
+    cursor: move;
   }
-  .el-rect { width: 160px; height: 100px; border-radius: 6px; }
-  .el-circle { width: 120px; height: 120px; border-radius: 50%; }
+  .el-rect {
+    width: 160px; height: 100px; border-radius: 6px;
+    cursor: move;
+  }
+  .el-circle {
+    width: 120px; height: 120px; border-radius: 50%;
+    cursor: move;
+  }
   .el-triangle {
     width: 0; height: 0;
     border-left: 70px solid transparent;
     border-right: 70px solid transparent;
     border-bottom: 120px solid #0d99ff;
+    cursor: move;
   }
   .el-arrow {
     width: 180px; height: 6px;
     background: #0d99ff; border-radius: 3px;
+    cursor: move;
   }
   .el-arrow::after {
     content: ''; position: absolute; right: -2px; top: 50%;
@@ -150,22 +237,25 @@
     padding: 4px 6px; color: #222; outline: none;
     min-width: 40px; border-radius: 4px;
     font-size: 18px; line-height: 1.3; white-space: pre-wrap;
+    cursor: move;
   }
   .el-comment {
     width: 200px; background: #fff;
     border: 2px solid #f39c12; border-radius: 10px;
     padding: 10px; font-size: 13px; color: #222;
     box-shadow: 2px 4px 10px rgba(0,0,0,0.15);
+    cursor: move;
   }
   .el-comment::before {
     content: ''; position: absolute; bottom: -10px; left: 20px;
     border: 8px solid transparent; border-top-color: #f39c12;
   }
-  .el-image { max-width: 600px; }
+  .el-image { max-width: 600px; cursor: move; }
   .el-image img { display: block; max-width: 100%; border-radius: 6px; }
   .el-stamp {
     font-size: 60px; line-height: 1;
     filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2));
+    cursor: move;
   }
 
   /* ===== リモートカーソル ===== */
@@ -271,6 +361,9 @@
     border: 1px solid #555; border-radius: 4px;
     padding: 5px 8px; font-size: 12px;
   }
+  #propPanel .name-input {
+    width: 130px;
+  }
   #propPanel button {
     background: #3a3a3a; color: #eee;
     border: 1px solid #555; border-radius: 4px;
@@ -283,12 +376,16 @@
     background: #f39c12; border-color: #f39c12;
     color: white; font-weight: 600;
   }
-  #propPanel button.code-btn:hover { background: #e67e22; }
   #propPanel button.code-btn.has-code {
     background: #27ae60; border-color: #27ae60;
   }
+  #propPanel .pos-info {
+    font-family: monospace; font-size: 11px;
+    color: #0d99ff; background: #1a1a1a;
+    padding: 4px 8px; border-radius: 4px;
+  }
 
-  /* ===== コードエディタモーダル ===== */
+  /* ===== コードエディタ ===== */
   #codeModal {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.7);
@@ -363,21 +460,15 @@
     border-radius: 6px; font-size: 13px;
     font-weight: 600; cursor: pointer;
   }
-  .code-foot .actions button.cancel {
-    background: #3a3a3a; color: #eee;
-  }
-  .code-foot .actions button.save {
-    background: #0d99ff; color: white;
-  }
-  .code-foot .actions button.remove {
-    background: #c0392b; color: white;
-  }
+  .code-foot .actions button.cancel { background: #3a3a3a; color: #eee; }
+  .code-foot .actions button.save { background: #0d99ff; color: white; }
+  .code-foot .actions button.remove { background: #c0392b; color: white; }
   .code-foot .actions button:hover { filter: brightness(1.15); }
 
-  /* ===== スクリプト実行結果通知 ===== */
+  /* ===== ログ ===== */
   #scriptLog {
     position: fixed; bottom: 100px; right: 20px;
-    width: 320px; max-height: 200px; overflow-y: auto;
+    width: 340px; max-height: 220px; overflow-y: auto;
     background: rgba(20,20,20,0.95);
     border: 1px solid #444; border-radius: 8px;
     padding: 10px 12px; font-family: monospace;
@@ -385,13 +476,33 @@
     z-index: 10003; display: none;
   }
   #scriptLog.show { display: block; }
-  #scriptLog .log-line { padding: 2px 0; border-bottom: 1px solid #333; }
+  #scriptLog .log-line { padding: 3px 0; border-bottom: 1px solid #333; }
   #scriptLog .log-line.error { color: #e74c3c; }
   #scriptLog .log-line.log { color: #6cc; }
+  #scriptLog .log-line.event { color: #f39c12; }
+  #scriptLog .log-line.coord { color: #2ecc71; }
   #scriptLog .log-head {
     font-size: 10px; color: #999;
-    margin-bottom: 4px; text-transform: uppercase;
+    margin-bottom: 6px; text-transform: uppercase;
+    display: flex; justify-content: space-between;
   }
+
+  /* ===== 座標トースト ===== */
+  #coordToast {
+    position: fixed;
+    background: #2ecc71; color: white;
+    padding: 6px 12px; border-radius: 6px;
+    font-family: monospace; font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    pointer-events: none;
+    z-index: 10005;
+    transform: translate(-50%, -100%);
+    margin-top: -10px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  #coordToast.show { opacity: 1; }
 
   /* ===== スラッシュメニュー ===== */
   #slashMenu {
@@ -407,7 +518,6 @@
     display: flex; align-items: center; gap: 10px;
     padding: 10px 14px; cursor: pointer;
     border-bottom: 1px solid #333;
-    transition: background 0.1s;
   }
   .slash-item:last-child { border-bottom: none; }
   .slash-item:hover, .slash-item.active { background: #0d99ff; }
@@ -627,8 +737,10 @@
   <span style="border-left:1px solid #555; height:20px; margin:0 4px"></span>
   <button id="slashBtn">/ コマンド</button>
   <button id="chatBtn">💬 履歴</button>
+  <button id="logBtn" title="ログ表示">📜 ログ</button>
   <button id="clearBtn">🗑 全消去</button>
-  <button id="logBtn" title="スクリプトログ">📜 ログ</button>
+  <span style="border-left:1px solid #555; height:20px; margin:0 4px"></span>
+  <div class="coord-display" id="coordDisplay">X: --  Y: --</div>
   <span style="border-left:1px solid #555; height:20px; margin:0 4px"></span>
   <button id="adminBtn" style="display:none">👑 管理</button>
   <div id="users" style="margin-left:8px"></div>
@@ -642,7 +754,6 @@
   </div>
 </div>
 
-<!-- 自分の吹き出し -->
 <div id="myBubble">
   <div class="bubble-wrap">
     <input id="myBubbleInput" placeholder="メッセージ... (Enter送信)" maxlength="200">
@@ -651,10 +762,8 @@
   </div>
 </div>
 
-<!-- プロパティパネル -->
 <div id="propPanel"></div>
 
-<!-- コードエディタ -->
 <div id="codeModal">
   <div class="code-box">
     <div class="code-head">
@@ -667,9 +776,8 @@
       <button class="close-btn" id="codeClose">×</button>
     </div>
     <div class="code-body">
-      <div class="code-help" id="codeHelp">
-        <strong>💡 使い方:</strong> このコードは<strong>サンドボックス化されたiframe</strong>内で実行されます。
-        親ページにはアクセスできません。<br>
+      <div class="code-help">
+        <strong>💡 使い方:</strong> サンドボックス化されたiframe内で実行されます。<br>
         <code>parent.postMessage({type:'notify', text:'Hello'}, '*')</code> で通知を送れます。
       </div>
       <textarea id="codeTextarea" spellcheck="false"></textarea>
@@ -714,8 +822,13 @@
 
 <div id="pasteHint">📋 画像を貼り付けました</div>
 
+<div id="coordToast">X: 0 Y: 0</div>
+
 <div id="scriptLog">
-  <div class="log-head">📜 スクリプトログ <span id="logClear" style="cursor:pointer;color:#0d99ff">クリア</span></div>
+  <div class="log-head">
+    <span>📜 ログ</span>
+    <span id="logClear" style="cursor:pointer;color:#0d99ff;">クリア</span>
+  </div>
   <div id="logBody"></div>
 </div>
 
@@ -737,15 +850,9 @@ const firebaseConfig = {
   appId: "1:194855566776:web:a9ef3c1d3a1f19624a234d"
 };
 
-// ============ 管理者設定 ============
-const ADMIN_EMAILS = [
-  "katou.noel114514@gmail.com",
-  "18107@v.nakijin.ed.jp"
-];
-const ADMIN_UIDS = [
-  "dXz1d6jdMWMB7l5pQGCpEYkukZi2",
-  "48IOjYhn3VZNPUKyPE5LA85J0o93"
-];
+// ============ 管理者 ============
+const ADMIN_EMAILS = ["katou.noel114514@gmail.com","18107@v.nakijin.ed.jp"];
+const ADMIN_UIDS = ["dXz1d6jdMWMB7l5pQGCpEYkukZi2","48IOjYhn3VZNPUKyPE5LA85J0o93"];
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -761,9 +868,7 @@ let elements = {};
 let elementRefs = {};
 let myCursorRef = null;
 let unsubscribers = [];
-let banUnsub = null;
-let usersUnsub = null;
-let chatUnsub = null;
+let banUnsub = null, usersUnsub = null, chatUnsub = null;
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
 let currentDragId = null;
@@ -798,6 +903,8 @@ const codeModal = document.getElementById('codeModal');
 const codeTextarea = document.getElementById('codeTextarea');
 const scriptLog = document.getElementById('scriptLog');
 const logBody = document.getElementById('logBody');
+const coordDisplay = document.getElementById('coordDisplay');
+const coordToast = document.getElementById('coordToast');
 
 // ============ 定数 ============
 const COMMANDS = [
@@ -810,99 +917,42 @@ const COMMANDS = [
   { id: 'comment',  icon: '💬', name: 'コメント',    cmd: '/comment',  desc: '吹き出し' },
   { id: 'stamp',    icon: '⭐', name: 'スタンプ',    cmd: '/stamp',    desc: '絵文字' },
   { id: 'image',    icon: '🖼', name: '画像URL',     cmd: '/image',    desc: 'URLから' },
-  { id: 'button',   icon: '🔘', name: 'ボタン',      cmd: '/button',   desc: 'スクリプト付きボタン' },
+  { id: 'button',   icon: '🔘', name: 'ボタン',      cmd: '/button',   desc: 'スクリプト付き' },
   { id: 'chat',     icon: '💭', name: 'チャット',    cmd: '/chat',     desc: 'チャット開く' },
   { id: 'clear',    icon: '🗑', name: '全消去',      cmd: '/clear',    desc: '全要素削除' },
 ];
+
+const TYPE_LABEL = {
+  sticky: '付箋', text: 'テキスト', rect: '四角形',
+  circle: '円', triangle: '三角形', arrow: '矢印',
+  comment: 'コメント', stamp: 'スタンプ', image: '画像'
+};
 
 const STICKY_COLORS = ['#fef08a','#fbcfe8','#bfdbfe','#bbf7d0','#fed7aa','#e9d5ff'];
 const SHAPE_COLORS  = ['#0d99ff','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'];
 const STAMPS        = ['⭐','❤️','👍','🎉','🔥','✨','💯','👀','🚀','🎨','💡','✅'];
 
-// スクリプト用テンプレート
+// ============ コードテンプレート ============
 const CODE_TEMPLATES = {
   button: {
-    html: `<button id="btn">クリック！</button>
-<p id="out"></p>`,
-    css: `body { margin:0; padding:8px; font-family:sans-serif; background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
-#btn {
-  padding: 12px 24px; background: #0d99ff; color: white;
-  border: none; border-radius: 8px; font-size: 16px;
-  font-weight: 600; cursor: pointer; transition: 0.2s;
-  box-shadow: 0 4px 12px rgba(13,153,255,0.3);
-}
-#btn:hover { background: #0b7fd9; transform: translateY(-2px); }
-#btn:active { transform: scale(0.95); }
-#out { margin-top: 8px; font-size: 14px; color: #222; }`,
-    js: `let count = 0;
-document.getElementById('btn').addEventListener('click', () => {
-  count++;
-  document.getElementById('out').textContent = 'クリック: ' + count;
-  parent.postMessage({ type: 'notify', text: 'ボタンが押されました！ (' + count + '回)' }, '*');
-});`
+    html: `<button id="btn">クリック！</button>\n<p id="out"></p>`,
+    css: `body { margin:0; padding:8px; font-family:sans-serif; background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }\n#btn { padding: 12px 24px; background: #0d99ff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(13,153,255,0.3); }\n#btn:hover { background: #0b7fd9; transform: translateY(-2px); }\n#btn:active { transform: scale(0.95); }\n#out { margin-top: 8px; font-size: 14px; color: #222; }`,
+    js: `let count = 0;\ndocument.getElementById('btn').addEventListener('click', () => {\n  count++;\n  document.getElementById('out').textContent = 'クリック: ' + count;\n  parent.postMessage({ type: 'notify', text: 'ボタンが押されました！ (' + count + '回)' }, '*');\n});`
   },
   hover: {
-    html: `<div id="box">
-  <span id="icon">🎁</span>
-  <div id="text">カーソルを合わせて</div>
-</div>`,
-    css: `body { margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:transparent; font-family:sans-serif; }
-#box {
-  padding: 16px 24px; background: linear-gradient(135deg, #667eea, #764ba2);
-  border-radius: 12px; color: white; text-align: center;
-  transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
-  cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-#icon { font-size: 32px; display: block; transition: 0.4s; }
-#text { font-size: 13px; margin-top: 4px; }
-#box:hover {
-  transform: scale(1.15) rotate(-3deg);
-  box-shadow: 0 12px 32px rgba(102,126,234,0.6);
-}
-#box:hover #icon { transform: rotate(360deg) scale(1.3); }`,
-    js: `document.getElementById('box').addEventListener('mouseenter', () => {
-  parent.postMessage({ type: 'notify', text: '🎁 ホバー中...' }, '*');
-});`
+    html: `<div id="box"><span id="icon">🎁</span><div id="text">カーソルを合わせて</div></div>`,
+    css: `body { margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:transparent; font-family:sans-serif; }\n#box { padding: 16px 24px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 12px; color: white; text-align: center; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }\n#icon { font-size: 32px; display: block; transition: 0.4s; }\n#text { font-size: 13px; margin-top: 4px; }\n#box:hover { transform: scale(1.15) rotate(-3deg); box-shadow: 0 12px 32px rgba(102,126,234,0.6); }\n#box:hover #icon { transform: rotate(360deg) scale(1.3); }`,
+    js: `document.getElementById('box').addEventListener('mouseenter', () => {\n  parent.postMessage({ type: 'notify', text: '🎁 ホバー中...' }, '*');\n});`
   },
   counter: {
-    html: `<div id="wrap">
-  <div id="num">0</div>
-  <div>
-    <button class="btn" id="dec">−</button>
-    <button class="btn" id="inc">＋</button>
-  </div>
-</div>`,
-    css: `body { margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:transparent; font-family:sans-serif; }
-#wrap { text-align:center; background:white; padding:16px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.15); }
-#num { font-size:48px; font-weight:bold; color:#0d99ff; margin-bottom:8px; }
-.btn {
-  width:44px; height:44px; border-radius:50%; border:none;
-  background:#0d99ff; color:white; font-size:24px; font-weight:bold;
-  cursor:pointer; margin:0 4px; transition:0.2s;
-}
-.btn:hover { background:#0b7fd9; transform:scale(1.1); }
-.btn:active { transform:scale(0.9); }`,
-    js: `let n = 0;
-const num = document.getElementById('num');
-document.getElementById('inc').onclick = () => { n++; num.textContent = n; num.style.color = '#2ecc71'; };
-document.getElementById('dec').onclick = () => { n--; num.textContent = n; num.style.color = '#e74c3c'; };`
+    html: `<div id="wrap"><div id="num">0</div><div><button class="btn" id="dec">−</button><button class="btn" id="inc">＋</button></div></div>`,
+    css: `body { margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:transparent; font-family:sans-serif; }\n#wrap { text-align:center; background:white; padding:16px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.15); }\n#num { font-size:48px; font-weight:bold; color:#0d99ff; margin-bottom:8px; }\n.btn { width:44px; height:44px; border-radius:50%; border:none; background:#0d99ff; color:white; font-size:24px; font-weight:bold; cursor:pointer; margin:0 4px; transition:0.2s; }\n.btn:hover { background:#0b7fd9; transform:scale(1.1); }\n.btn:active { transform:scale(0.9); }`,
+    js: `let n = 0;\nconst num = document.getElementById('num');\ndocument.getElementById('inc').onclick = () => { n++; num.textContent = n; num.style.color = '#2ecc71'; };\ndocument.getElementById('dec').onclick = () => { n--; num.textContent = n; num.style.color = '#e74c3c'; };`
   },
   clock: {
-    html: `<div id="clock"></div>
-<div id="date"></div>`,
-    css: `body { margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background: linear-gradient(135deg, #1e1e2e, #2c2c3c); font-family:monospace; color:white; }
-#clock { font-size:42px; font-weight:bold; letter-spacing:2px; text-shadow:0 0 20px rgba(13,153,255,0.7); }
-#date { font-size:14px; color:#888; margin-top:8px; }`,
-    js: `function tick() {
-  const d = new Date();
-  const hh = String(d.getHours()).padStart(2,'0');
-  const mm = String(d.getMinutes()).padStart(2,'0');
-  const ss = String(d.getSeconds()).padStart(2,'0');
-  document.getElementById('clock').textContent = hh + ':' + mm + ':' + ss;
-  document.getElementById('date').textContent = d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
-}
-tick();
-setInterval(tick, 1000);`
+    html: `<div id="clock"></div>\n<div id="date"></div>`,
+    css: `body { margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background: linear-gradient(135deg, #1e1e2e, #2c2c3c); font-family:monospace; color:white; }\n#clock { font-size:42px; font-weight:bold; letter-spacing:2px; text-shadow:0 0 20px rgba(13,153,255,0.7); }\n#date { font-size:14px; color:#888; margin-top:8px; }`,
+    js: `function tick() {\n  const d = new Date();\n  const hh = String(d.getHours()).padStart(2,'0');\n  const mm = String(d.getMinutes()).padStart(2,'0');\n  const ss = String(d.getSeconds()).padStart(2,'0');\n  document.getElementById('clock').textContent = hh + ':' + mm + ':' + ss;\n  document.getElementById('date').textContent = d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'long' });\n}\ntick();\nsetInterval(tick, 1000);`
   }
 };
 
@@ -949,7 +999,6 @@ function showBanScreen() {
   slashMenu.classList.remove('show');
   propPanel.classList.remove('show');
   codeModal.classList.remove('show');
-
   setTimeout(() => {
     try {
       window.history.replaceState(null, '', 'about:blank');
@@ -1038,7 +1087,6 @@ function joinRoom(id) {
     });
   }));
 
-  // 吹き出し
   unsubscribers.push(onValue(ref(db, `rooms/${roomId}/bubbles`), snap => {
     const data = snap.val() || {};
     canvas.querySelectorAll('.cursor-bubble').forEach(el => el.remove());
@@ -1055,7 +1103,6 @@ function joinRoom(id) {
     });
   }));
 
-  // 要素
   unsubscribers.push(onValue(ref(db, `rooms/${roomId}/elements`), snap => {
     const data = snap.val() || {};
     Object.keys(elementRefs).forEach(eid => {
@@ -1068,10 +1115,16 @@ function joinRoom(id) {
     Object.entries(data).forEach(([eid, el]) => {
       const isEditing = elementRefs[eid] &&
         elementRefs[eid].querySelector('[contenteditable="true"]') === document.activeElement;
+      const newEl = !elementRefs[eid];
       elements[eid] = el;
-      if (!elementRefs[eid]) {
+      if (newEl) {
         elementRefs[eid] = createElementDOM(eid, el);
         canvas.appendChild(elementRefs[eid]);
+        // 新規要素の登場ログ（自分の追加は除く）
+        if (el.author !== (currentUser.displayName || currentUser.email)) {
+          const label = el.name || TYPE_LABEL[el.type] || el.type;
+          addLog('event', `✨ 「${label}」が (${el.x}, ${el.y}) に現れました by ${el.author || '?'}`);
+        }
       } else if (!isEditing) {
         updateElementDOM(eid, el);
       }
@@ -1092,7 +1145,7 @@ function joinRoom(id) {
   }
 }
 
-// ============ 要素DOM ============
+// ============ 要素DOM生成 ============
 function createElementDOM(id, el) {
   const div = document.createElement('div');
   div.className = 'element';
@@ -1102,24 +1155,44 @@ function createElementDOM(id, el) {
   div.style.top = el.y + 'px';
 
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
+  const name = el.name || '';
+
+  // 名前ラベル
+  const nameLabel = document.createElement('div');
+  nameLabel.className = 'name-label';
+  nameLabel.textContent = name || TYPE_LABEL[el.type] || el.type;
+  div.appendChild(nameLabel);
+  if (name) div.classList.add('has-name');
 
   if (hasCode) {
-    // iframeレンダリング
+    // ========== スクリプト要素 ==========
     div.classList.add('has-script');
-    if (el.width)  div.style.width  = el.width + 'px';
-    else div.style.width = '240px';
-    if (el.height) div.style.height = el.height + 'px';
-    else div.style.height = '160px';
+    div.style.width  = (el.width || 240) + 'px';
+    div.style.height = (el.height || 160) + 'px';
 
+    // 上部のドラッグバー
+    const dragBar = document.createElement('div');
+    dragBar.className = 'drag-bar';
+    dragBar.textContent = '⠿ ' + (name || 'スクリプト') + ' — ドラッグで移動';
+    dragBar.addEventListener('mousedown', (e) => startDragFromBar(e, id));
+    div.appendChild(dragBar);
+
+    // iframe
     const wrapper = document.createElement('div');
     wrapper.className = 'script-wrapper';
     wrapper.innerHTML = `<iframe class="script-frame" sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe>`;
     div.appendChild(wrapper);
-
     const frame = wrapper.querySelector('iframe');
     frame.srcdoc = buildIframeDoc(el.code, id);
+
+    // スクリプトバッジ
+    const badge = document.createElement('div');
+    badge.className = 'script-badge';
+    badge.textContent = '⚡';
+    badge.title = 'スクリプト有効';
+    div.appendChild(badge);
   } else {
-    // 通常レンダリング
+    // ========== 通常要素 ==========
     switch (el.type) {
       case 'sticky':
         div.classList.add('el-sticky');
@@ -1173,24 +1246,13 @@ function createElementDOM(id, el) {
     }
   }
 
-  // スクリプトバッジ
-  if (hasCode) {
-    const badge = document.createElement('div');
-    badge.className = 'script-badge';
-    badge.textContent = '⚡';
-    badge.title = 'スクリプト有効';
-    div.appendChild(badge);
-  }
-
-  // リサイズハンドル
-  if (['sticky','text','comment','rect','circle','image'].includes(el.type) || hasCode) {
-    ['tl','tr','bl','br'].forEach(pos => {
-      const h = document.createElement('div');
-      h.className = 'resize-handle ' + pos;
-      h.addEventListener('mousedown', (e) => startResize(e, id, pos));
-      div.appendChild(h);
-    });
-  }
+  // リサイズハンドル（全部の要素に付ける）
+  ['tl','tr','bl','br'].forEach(pos => {
+    const h = document.createElement('div');
+    h.className = 'resize-handle ' + pos;
+    h.addEventListener('mousedown', (e) => startResize(e, id, pos));
+    div.appendChild(h);
+  });
 
   // 削除ボタン
   const del = document.createElement('div');
@@ -1202,10 +1264,50 @@ function createElementDOM(id, el) {
   });
   div.appendChild(del);
 
-  div.addEventListener('mousedown', onElementMouseDown);
+  // イベント
+  if (hasCode) {
+    // スクリプト要素: 外枠クリックで選択、ドラッグバーでドラッグ
+    div.addEventListener('mousedown', (e) => {
+      // ドラッグバー、リサイズハンドル、削除ボタン、iframe内は無視
+      if (e.target.classList.contains('drag-bar') ||
+          e.target.classList.contains('resize-handle') ||
+          e.target.classList.contains('delete-btn')) return;
+      // 名前ラベルも無視
+      if (e.target.classList.contains('name-label')) return;
+      // それ以外（外枠）→ 選択のみ
+      e.stopPropagation();
+      selectElement(id);
+    });
+  } else {
+    div.addEventListener('mousedown', onElementMouseDown);
+  }
   div.addEventListener('dblclick', onElementDblClick);
 
   return div;
+}
+
+function startDragFromBar(e, id) {
+  e.stopPropagation();
+  e.preventDefault();
+  const el = elements[id];
+  if (!el) return;
+  selectElement(id);
+  isDragging = true;
+  currentDragId = id;
+  const rect = canvas.getBoundingClientRect();
+  dragOffset.x = (e.clientX - rect.left) - el.x;
+  dragOffset.y = (e.clientY - rect.top) - el.y;
+  // iframe無効化
+  const dom = elementRefs[id];
+  if (dom) dom.classList.add('dragging');
+}
+
+function selectElement(id) {
+  selectedId = id;
+  document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
+  const dom = elementRefs[id];
+  if (dom) dom.classList.add('selected');
+  showPropPanel(id);
 }
 
 function buildIframeDoc(code, elementId) {
@@ -1230,7 +1332,6 @@ function buildIframeDoc(code, elementId) {
       })();
     <\/script>
   `;
-
   const wrappedJS = `
     try {
       ${code.js || ''}
@@ -1238,7 +1339,6 @@ function buildIframeDoc(code, elementId) {
       console.error('Script error:', err.message);
     }
   `;
-
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8">${bridge}
 <style>
@@ -1268,10 +1368,23 @@ function updateElementDOM(id, el) {
   if (el.width)  dom.style.width  = el.width + 'px';
   if (el.height) dom.style.height = el.height + 'px';
 
+  // 名前更新
+  const nameLabel = dom.querySelector('.name-label');
+  if (nameLabel) {
+    const name = el.name || '';
+    nameLabel.textContent = name || TYPE_LABEL[el.type] || el.type;
+    if (name) dom.classList.add('has-name');
+    else dom.classList.remove('has-name');
+  }
+  // ドラッグバー更新
+  const dragBar = dom.querySelector('.drag-bar');
+  if (dragBar) {
+    dragBar.textContent = '⠿ ' + (el.name || 'スクリプト') + ' — ドラッグで移動';
+  }
+
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
   const hadCode = dom.classList.contains('has-script');
 
-  // コードの有無が変わったら再生成
   if (hasCode !== hadCode) {
     const newDom = createElementDOM(id, el);
     dom.replaceWith(newDom);
@@ -1280,7 +1393,6 @@ function updateElementDOM(id, el) {
   }
 
   if (hasCode) {
-    // iframeを更新
     const frame = dom.querySelector('.script-frame');
     if (frame) {
       const newDoc = buildIframeDoc(el.code, id);
@@ -1289,7 +1401,6 @@ function updateElementDOM(id, el) {
     return;
   }
 
-  // 通常要素の更新
   if ((el.type === 'sticky' || el.type === 'text' || el.type === 'comment') &&
       dom.textContent !== el.content && !dom.isContentEditable) {
     dom.textContent = el.content || '';
@@ -1313,26 +1424,10 @@ function updateElementDOM(id, el) {
 
 // ============ ドラッグ ============
 function onElementMouseDown(e) {
-  // iframe内クリックは無視（iframeが処理する）
   if (e.target.classList.contains('resize-handle')) return;
   if (e.target.classList.contains('delete-btn')) return;
-
+  if (e.target.classList.contains('name-label')) return;
   const div = e.currentTarget;
-  const isScript = div.classList.contains('has-script');
-  // スクリプト要素は alt押しながら or 右上×ボタン or リサイズ時のみドラッグ
-  if (isScript) {
-    // 上部10pxのドラッグハンドル領域のみ
-    const rect = div.getBoundingClientRect();
-    if (e.clientY - rect.top > 10) {
-      // 要素選択だけして、ドラッグしない
-      selectedId = div.dataset.id;
-      document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
-      div.classList.add('selected');
-      showPropPanel(div.dataset.id);
-      return;
-    }
-  }
-
   if (div.querySelector('[contenteditable="true"]') === document.activeElement) return;
 
   e.stopPropagation();
@@ -1341,11 +1436,7 @@ function onElementMouseDown(e) {
   const el = elements[id];
   if (!el) return;
 
-  selectedId = id;
-  document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
-  div.classList.add('selected');
-  showPropPanel(id);
-
+  selectElement(id);
   isDragging = true;
   currentDragId = id;
   const rect = canvas.getBoundingClientRect();
@@ -1358,6 +1449,9 @@ canvas.addEventListener('mousemove', e => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
+
+  // 座標表示更新
+  coordDisplay.textContent = `X: ${Math.round(x)}  Y: ${Math.round(y)}`;
 
   if (myCursorRef) {
     const now = Date.now();
@@ -1386,10 +1480,10 @@ canvas.addEventListener('mousemove', e => {
     const dx = x - startX;
     const dy = y - startY;
     let nw = origW, nh = origH, nx = origX, ny = origY;
-    if (pos.includes('r')) nw = Math.max(40, origW + dx);
-    if (pos.includes('l')) { nw = Math.max(40, origW - dx); nx = origX + dx; }
-    if (pos.includes('b')) nh = Math.max(40, origH + dy);
-    if (pos.includes('t')) { nh = Math.max(40, origH - dy); ny = origY + dy; }
+    if (pos.includes('r')) nw = Math.max(30, origW + dx);
+    if (pos.includes('l')) { nw = Math.max(30, origW - dx); nx = origX + dx; }
+    if (pos.includes('b')) nh = Math.max(30, origH + dy);
+    if (pos.includes('t')) { nh = Math.max(30, origH - dy); ny = origY + dy; }
     dom.style.width = nw + 'px';
     dom.style.height = nh + 'px';
     dom.style.left = nx + 'px';
@@ -1403,6 +1497,7 @@ document.addEventListener('mouseup', () => {
   if (isDragging && currentDragId) {
     const dom = elementRefs[currentDragId];
     if (dom) {
+      dom.classList.remove('dragging');
       update(ref(db, `rooms/${roomId}/elements/${currentDragId}`), {
         x: parseInt(dom.style.left),
         y: parseInt(dom.style.top)
@@ -1437,19 +1532,19 @@ function startResize(e, id, pos) {
     startX: e.clientX - rect.left,
     startY: e.clientY - rect.top,
     origW: bcr.width, origH: bcr.height,
-    origX: parseInt(dom.style.left),
-    origY: parseInt(dom.style.top)
+    origX: parseInt(dom.style.left) || 0,
+    origY: parseInt(dom.style.top) || 0
   };
 }
 
-// ============ ダブルクリック編集 ============
+// ============ ダブルクリック ============
 function onElementDblClick(e) {
   const div = e.currentTarget;
   const id = div.dataset.id;
   const el = elements[id];
   if (!el) return;
+
   if (div.classList.contains('has-script')) {
-    // スクリプト要素はコードエディタを開く
     openCodeEditor(id);
     return;
   }
@@ -1495,13 +1590,48 @@ function showPropPanel(id) {
   const isSticky = el.type === 'sticky';
   const isStamp = el.type === 'stamp';
 
-  // --- スクリプトボタン ---
+  // --- 名前 ---
+  const gName = document.createElement('div');
+  gName.className = 'pp-group';
+  gName.innerHTML = `<label>名前</label>`;
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'name-input';
+  nameInput.placeholder = '例: 送信ボタン';
+  nameInput.value = el.name || '';
+  nameInput.addEventListener('change', () => {
+    const v = nameInput.value.trim();
+    if (v) {
+      update(ref(db, `rooms/${roomId}/elements/${id}`), { name: v });
+    } else {
+      remove(ref(db, `rooms/${roomId}/elements/${id}/name`));
+    }
+  });
+  gName.appendChild(nameInput);
+  propPanel.appendChild(gName);
+
+  // --- 位置・サイズ情報 ---
+  const gPos = document.createElement('div');
+  gPos.className = 'pp-group';
+  const posInfo = document.createElement('div');
+  posInfo.className = 'pos-info';
+  posInfo.textContent = `📍 (${Math.round(el.x)}, ${Math.round(el.y)})`;
+  posInfo.title = '位置（座標）';
+  gPos.appendChild(posInfo);
+  if (el.width && el.height) {
+    const sizeInfo = document.createElement('div');
+    sizeInfo.className = 'pos-info';
+    sizeInfo.textContent = `📐 ${Math.round(el.width)}×${Math.round(el.height)}`;
+    gPos.appendChild(sizeInfo);
+  }
+  propPanel.appendChild(gPos);
+
+  // --- スクリプト ---
   const gScript = document.createElement('div');
   gScript.className = 'pp-group';
   const codeBtn = document.createElement('button');
   codeBtn.className = 'code-btn' + (hasCode ? ' has-code' : '');
   codeBtn.textContent = hasCode ? '⚡ コード編集' : '⚡ コード追加';
-  codeBtn.title = 'スクリプトを埋め込む';
   codeBtn.addEventListener('click', () => openCodeEditor(id));
   gScript.appendChild(codeBtn);
   propPanel.appendChild(gScript);
@@ -1577,18 +1707,16 @@ function showPropPanel(id) {
     propPanel.appendChild(g);
   }
 
-  // --- レイヤー ---
+  // --- 前面/背面 ---
   const gLayer = document.createElement('div');
   gLayer.className = 'pp-group';
   const upBtn = document.createElement('button');
-  upBtn.textContent = '⬆';
-  upBtn.title = '前面へ';
+  upBtn.textContent = '⬆'; upBtn.title = '前面へ';
   upBtn.addEventListener('click', () => {
     update(ref(db, `rooms/${roomId}/elements/${id}`), { z: Date.now() });
   });
   const downBtn = document.createElement('button');
-  downBtn.textContent = '⬇';
-  downBtn.title = '背面へ';
+  downBtn.textContent = '⬇'; downBtn.title = '背面へ';
   downBtn.addEventListener('click', () => {
     update(ref(db, `rooms/${roomId}/elements/${id}`), { z: 1 });
   });
@@ -1600,8 +1728,7 @@ function showPropPanel(id) {
   const gDup = document.createElement('div');
   gDup.className = 'pp-group';
   const dupBtn = document.createElement('button');
-  dupBtn.textContent = '⧉';
-  dupBtn.title = '複製';
+  dupBtn.textContent = '⧉'; dupBtn.title = '複製';
   dupBtn.addEventListener('click', async () => {
     const newId = newElemId();
     const copy = JSON.parse(JSON.stringify(el));
@@ -1619,7 +1746,23 @@ function rgbToHex(color) {
   return color;
 }
 
-// 選択解除
+// ============ キャンバスクリック（座標表示） ============
+canvas.addEventListener('mousedown', (e) => {
+  if (e.target === canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.round(e.clientX - rect.left);
+    const y = Math.round(e.clientY - rect.top);
+    // 座標トースト表示
+    coordToast.textContent = `📍 X: ${x}, Y: ${y}`;
+    coordToast.style.left = e.clientX + 'px';
+    coordToast.style.top = e.clientY + 'px';
+    coordToast.classList.add('show');
+    clearTimeout(window._coordToastTimer);
+    window._coordToastTimer = setTimeout(() => coordToast.classList.remove('show'), 1200);
+    addLog('coord', `🖱 クリック座標: (${x}, ${y})`);
+  }
+});
+
 canvas.addEventListener('click', (e) => {
   if (e.target === canvas) {
     document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
@@ -1639,21 +1782,17 @@ function openCodeEditor(id) {
     css:  (el.code && el.code.css)  || '',
     js:   (el.code && el.code.js)   || ''
   };
-
-  // タブ初期化
   currentCodeTab = 'html';
   document.querySelectorAll('.code-head .tabs button').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === 'html');
   });
   codeTextarea.value = editingCodeData.html;
-
   codeModal.classList.add('show');
   codeTextarea.focus();
 }
 
 document.querySelectorAll('.code-head .tabs button').forEach(btn => {
   btn.addEventListener('click', () => {
-    // 現在のタブを保存
     editingCodeData[currentCodeTab] = codeTextarea.value;
     currentCodeTab = btn.dataset.tab;
     document.querySelectorAll('.code-head .tabs button').forEach(b => {
@@ -1662,11 +1801,9 @@ document.querySelectorAll('.code-head .tabs button').forEach(btn => {
     codeTextarea.value = editingCodeData[currentCodeTab] || '';
   });
 });
-
 codeTextarea.addEventListener('input', () => {
   editingCodeData[currentCodeTab] = codeTextarea.value;
 });
-
 document.getElementById('codeClose').addEventListener('click', () => closeCodeEditor());
 document.getElementById('codeCancel').addEventListener('click', () => closeCodeEditor());
 
@@ -1675,7 +1812,6 @@ document.getElementById('codeSave').addEventListener('click', async () => {
   editingCodeData[currentCodeTab] = codeTextarea.value;
   await update(ref(db, `rooms/${roomId}/elements/${editingCodeId}`), {
     code: editingCodeData,
-    // デフォルトサイズを確保
     width: elements[editingCodeId].width || 240,
     height: elements[editingCodeId].height || 160
   });
@@ -1697,7 +1833,6 @@ function closeCodeEditor() {
   codeTextarea.value = '';
 }
 
-// テンプレート
 document.querySelectorAll('.code-foot .examples button').forEach(btn => {
   btn.addEventListener('click', () => {
     const key = btn.dataset.ex;
@@ -1726,41 +1861,53 @@ async function addElement(type, opts = {}) {
   };
 
   let payload;
+  let autoName = '';
+
   switch (type) {
     case 'sticky':
+      autoName = prompt('名前（任意・空でOK）:', '');
       payload = { ...base, color: pickColor(STICKY_COLORS), content: '', fontSize: 14 };
       break;
     case 'text':
+      autoName = prompt('名前（任意・空でOK）:', '');
       payload = { ...base, color: '#222222', content: 'テキスト', fontSize: 18 };
       break;
     case 'rect':
+      autoName = prompt('名前（任意・空でOK）:', '');
       payload = { ...base, color: pickColor(SHAPE_COLORS), width: 160, height: 100 };
       break;
     case 'circle':
+      autoName = prompt('名前（任意・空でOK）:', '');
       payload = { ...base, color: pickColor(SHAPE_COLORS), width: 120, height: 120 };
       break;
     case 'triangle':
+      autoName = prompt('名前（任意・空でOK）:', '');
       payload = { ...base, color: pickColor(SHAPE_COLORS) };
       break;
     case 'arrow':
+      autoName = prompt('名前（任意・空でOK）:', '');
       payload = { ...base, color: '#0d99ff' };
       break;
     case 'comment':
+      autoName = prompt('名前（任意・空でOK）:', '');
       payload = { ...base, content: 'コメント', fontSize: 13 };
       break;
     case 'stamp': {
       const stamp = prompt('絵文字を入力 (例: ⭐):', pickColor(STAMPS));
       if (!stamp) return;
+      autoName = prompt('名前（任意・空でOK）:', '');
       payload = { ...base, content: stamp, fontSize: 60 };
       break;
     }
     case 'image': {
       const url = prompt('画像URLを入力:');
       if (!url) return;
+      autoName = prompt('名前（任意・空でOK）:', '');
       payload = { ...base, content: url };
       break;
     }
     case 'button': {
+      autoName = prompt('名前（任意・空でOK）:', 'ボタン');
       payload = {
         ...base,
         type: 'rect',
@@ -1775,9 +1922,16 @@ async function addElement(type, opts = {}) {
       return;
   }
 
+  if (autoName && autoName.trim()) {
+    payload.name = autoName.trim();
+  }
+
   const newRef = push(ref(db, `rooms/${roomId}/elements`));
   await set(newRef, payload);
-  if (type === 'button') showHint('🔘 ボタン追加。ダブルクリックでコード編集');
+
+  const label = payload.name || TYPE_LABEL[payload.type] || payload.type;
+  addLog('event', `✨ 「${label}」を (${payload.x}, ${payload.y}) に追加しました`);
+  showHint(`✨ ${label} を追加しました`);
 }
 
 // ============ スラッシュメニュー ============
@@ -1792,7 +1946,6 @@ function showSlashMenu(x, y) {
   slashMenu.style.top  = Math.min(y, window.innerHeight - 420) + 'px';
   slashMenu.classList.add('show');
 }
-
 function hideSlashMenu() { slashMenu.classList.remove('show'); }
 
 function renderSlashMenu() {
@@ -1801,7 +1954,6 @@ function renderSlashMenu() {
     return;
   }
   if (slashActiveIndex >= slashFiltered.length) slashActiveIndex = 0;
-
   slashMenu.innerHTML = slashFiltered.map((c, i) => `
     <div class="slash-item ${i === slashActiveIndex ? 'active' : ''}" data-index="${i}">
       <div class="slash-icon">${c.icon}</div>
@@ -1829,13 +1981,13 @@ function renderSlashMenu() {
 async function executeCommand(id) {
   hideSlashMenu();
   switch (id) {
-    case 'sticky':   await addElement('sticky'); showHint('📝 付箋追加'); break;
-    case 'text':     await addElement('text');   showHint('🅰 ダブルクリックで編集'); break;
+    case 'sticky':   await addElement('sticky'); break;
+    case 'text':     await addElement('text'); break;
     case 'rect':     await addElement('rect'); break;
     case 'circle':   await addElement('circle'); break;
     case 'triangle': await addElement('triangle'); break;
     case 'arrow':    await addElement('arrow'); break;
-    case 'comment':  await addElement('comment'); showHint('💬 ダブルクリックで編集'); break;
+    case 'comment':  await addElement('comment'); break;
     case 'stamp':    await addElement('stamp'); break;
     case 'image':    await addElement('image'); break;
     case 'button':   await addElement('button'); break;
@@ -1859,18 +2011,16 @@ function showPasteHint(msg) {
   window._pasteHintTimer = setTimeout(() => pasteHint.classList.remove('show'), 1500);
 }
 
-// ============ スクリプトからのメッセージ受信 ============
+// ============ スクリプトメッセージ ============
 window.addEventListener('message', (e) => {
   const d = e.data;
   if (!d) return;
-
   if (d.__script) {
-    // スクリプトログ
     if (d.type === 'ready') return;
     addLog(d.type, d.msg);
   } else if (d.type === 'notify') {
-    // スクリプトからの通知
     showHint('⚡ ' + d.text);
+    addLog('event', '⚡ ' + d.text);
   }
 });
 
@@ -1897,7 +2047,6 @@ document.getElementById('logClear').addEventListener('click', () => {
   renderLogs();
   scriptLog.classList.remove('show');
 });
-
 document.getElementById('logBtn').addEventListener('click', () => {
   scriptLog.classList.toggle('show');
 });
@@ -1907,15 +2056,9 @@ document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase();
   const inEditable = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
 
-  // コードモーダルが開いているとき
   if (codeModal.classList.contains('show')) {
     if (e.key === 'Escape') { e.preventDefault(); closeCodeEditor(); return; }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      document.getElementById('codeSave').click();
-      return;
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 's')) {
       e.preventDefault();
       document.getElementById('codeSave').click();
       return;
@@ -1928,14 +2071,12 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       slashActiveIndex = (slashActiveIndex + 1) % slashFiltered.length;
-      renderSlashMenu();
-      return;
+      renderSlashMenu(); return;
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       slashActiveIndex = (slashActiveIndex - 1 + slashFiltered.length) % slashFiltered.length;
-      renderSlashMenu();
-      return;
+      renderSlashMenu(); return;
     }
     if (e.key === 'Enter' && !inEditable) {
       e.preventDefault();
@@ -2074,7 +2215,6 @@ function fileToDataURL(file) {
     reader.readAsDataURL(file);
   });
 }
-
 function resizeImage(dataUrl, maxWidth, quality) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -2092,18 +2232,21 @@ function resizeImage(dataUrl, maxWidth, quality) {
     img.src = dataUrl;
   });
 }
-
 async function pasteImage(dataUrl) {
   const cx = canvas.clientWidth / 2 - 150 + (Math.random() - 0.5) * 200;
   const cy = canvas.clientHeight / 2 - 150 + (Math.random() - 0.5) * 200;
   const newId = newElemId();
-  await set(ref(db, `rooms/${roomId}/elements/${newId}`), {
+  const name = prompt('名前（任意・空でOK）:', '');
+  const payload = {
     type: 'image',
     x: Math.round(cx),
     y: Math.round(cy),
     content: dataUrl,
     author: currentUser.displayName || currentUser.email
-  });
+  };
+  if (name && name.trim()) payload.name = name.trim();
+  await set(ref(db, `rooms/${roomId}/elements/${newId}`), payload);
+  addLog('event', `🖼 画像を (${payload.x}, ${payload.y}) に追加`);
 }
 
 // ============ ユーザー ============
@@ -2137,14 +2280,12 @@ function toggleChat(force) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 }
-
 document.getElementById('chatBtn').addEventListener('click', () => toggleChat());
 document.getElementById('chatClose').addEventListener('click', () => toggleChat(false));
 document.getElementById('chatSend').addEventListener('click', sendChat);
 chatInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); sendChat(); }
 });
-
 async function sendChat() {
   const text = chatInput.value.trim();
   if (!text || !roomId) return;
@@ -2158,7 +2299,6 @@ async function sendChat() {
     timestamp: Date.now()
   });
 }
-
 function renderChats(data) {
   const msgs = Object.entries(data)
     .map(([id, m]) => ({ id, ...m }))
@@ -2184,18 +2324,15 @@ document.getElementById('slashBtn').addEventListener('click', (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
   showSlashMenu(rect.left, rect.bottom + 6);
 });
-
 document.getElementById('clearBtn').addEventListener('click', () => {
   if (!roomId) return;
   if (!confirm('全要素を削除しますか？')) return;
   remove(ref(db, `rooms/${roomId}/elements`));
 });
-
 document.getElementById('joinBtn').addEventListener('click', () => {
   const id = document.getElementById('roomInput').value.trim() || 'default';
   joinRoom(id);
 });
-
 adminBtn.addEventListener('click', () => {
   adminPanel.classList.toggle('show');
   if (adminPanel.classList.contains('show')) {
@@ -2205,11 +2342,9 @@ adminBtn.addEventListener('click', () => {
     });
   }
 });
-
 document.getElementById('apClose').addEventListener('click', () => {
   adminPanel.classList.remove('show');
 });
-
 function renderAdminPanel() {
   if (!isAdmin) {
     apBody.innerHTML = '<div style="color:#e74c3c;font-size:13px;">管理者権限がありません</div>';
@@ -2222,23 +2357,18 @@ function renderAdminPanel() {
   }
   users.sort((a, b) => (b[1].lastSeen || 0) - (a[1].lastSeen || 0));
   apBody.innerHTML = '';
-
   users.forEach(([uid, u]) => {
     const isBanned = !!bannedUsers[uid];
     const isSelf = uid === currentUser.uid;
     const isAdminUser = isAdminEmail(u.email) || isAdminUid(uid);
-
     const row = document.createElement('div');
     row.className = 'user-row' + (isBanned ? ' banned' : '');
-
     const avatar = u.photo
       ? `<img src="${u.photo}" alt="">`
       : `<div class="ph">${(u.name || '?').slice(0, 1).toUpperCase()}</div>`;
-
     const badges = [];
     if (isAdminUser) badges.push('<span class="badge-admin">👑 管理者</span>');
     if (isBanned) badges.push('<span class="badge-ban">BAN</span>');
-
     row.innerHTML = `
       ${avatar}
       <div class="uinfo">
@@ -2246,7 +2376,6 @@ function renderAdminPanel() {
         <div class="uemail">${escapeHtml(u.email || '')}</div>
       </div>
     `;
-
     if (!isAdminUser && !isSelf) {
       const btn = document.createElement('button');
       btn.className = 'ubtn' + (isBanned ? ' unban' : '');
