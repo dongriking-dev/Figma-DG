@@ -57,7 +57,7 @@
   }
   .g-btn:hover { background: #f0f0f0; transform: translateY(-1px); }
   .g-btn svg { width: 20px; height: 20px; }
-  #loginError { color: #e74c3c; margin-top: 16px; font-size: 13px; min-height: 18px; }
+  #loginError { color: #e74c3c; margin-top: 16px; font-size: 13px; min-height: 18px; word-break: break-all; }
 
   /* ===== ツールバー ===== */
   #toolbar {
@@ -212,7 +212,6 @@
     color: white;
     font-weight: bold;
     position: relative;
-    overflow: visible;
   }
   .user-dot.me { border-color: #f39c12; }
   .user-dot img {
@@ -308,6 +307,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
+    flex-wrap: wrap;
   }
   .user-row .uemail {
     font-size: 11px;
@@ -453,21 +453,28 @@ import { getDatabase, ref, onValue, set, onDisconnect, remove, push, update, get
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-// ============ Firebase 設定（あなたのプロジェクト） ============
+// ============ Firebase 設定（正しいAPIキー） ============
 const firebaseConfig = {
-  apiKey: "AIzaSyB4CadLlM07WBgm7JHcDMqRxvhA2iKWOp8",
+  apiKey: "AIzaSyB4CAdLIM07WBgm7JHCdMqRxvhA2iKWOp8",
   authDomain: "figmadg-8575c.firebaseapp.com",
   databaseURL: "https://figmadg-8575c-default-rtdb.firebaseio.com",
   projectId: "figmadg-8575c",
   storageBucket: "figmadg-8575c.firebasestorage.app",
   messagingSenderId: "194855566776",
-  appId: "1:194855566776:web:a9ef3c1d3a1f19624a234d"
+  appId: "1:194855566776:web:a9ef3c1d3a1f19624a234d",
+  measurementId: "G-MPQ51HE0GW"
 };
 
 // ============ 管理者メールアドレス ============
 const ADMIN_EMAILS = [
   "katou.noel114514@gmail.com",
   "18107@v.nakijin.ed.jp"
+];
+
+// ============ 管理者UID（二重チェック用） ============
+const ADMIN_UIDS = [
+  "dXz1d6jdMWMB7l5pQGCpEYkukZi2",  // katou.noel114514@gmail.com
+  "48IOjYhn3VZNPUKyPE5LA85J0o93"   // 18107@v.nakijin.ed.jp
 ];
 
 const app = initializeApp(firebaseConfig);
@@ -526,6 +533,7 @@ document.getElementById('googleLogin').addEventListener('click', async () => {
     await signInWithPopup(auth, provider);
   } catch (e) {
     errEl.textContent = 'ログイン失敗: ' + e.message;
+    console.error(e);
   }
 });
 
@@ -546,7 +554,6 @@ function showBanScreen() {
 
   try { preview.srcdoc = ''; } catch(e){}
 
-  // 通知メッセージ表示
   setTimeout(() => {
     try {
       window.history.replaceState(null, '', 'about:blank');
@@ -554,6 +561,14 @@ function showBanScreen() {
       try { location.replace('about:blank'); } catch(e) {}
     } catch (e) {}
   }, 1800);
+}
+
+// ============ 管理者判定 ============
+function isAdminEmail(email) {
+  return email && ADMIN_EMAILS.includes(email);
+}
+function isAdminUid(uid) {
+  return uid && ADMIN_UIDS.includes(uid);
 }
 
 // ============ 認証状態監視 ============
@@ -572,7 +587,7 @@ onAuthStateChanged(auth, async (user) => {
   loginScreen.classList.add('hidden');
 
   // === 管理者判定 ===
-  isAdmin = ADMIN_EMAILS.includes(user.email);
+  isAdmin = isAdminEmail(user.email) || isAdminUid(user.uid);
   try {
     const snap = await get(child(ref(db), `admins/${user.uid}`));
     if (snap.exists()) isAdmin = true;
@@ -588,7 +603,7 @@ onAuthStateChanged(auth, async (user) => {
     });
   } catch (e) { console.warn('user register failed', e); }
 
-  // === BANチェック（リアルタイム）===
+  // === BANチェック（リアルタイム） ===
   if (banUnsub) banUnsub();
   banUnsub = onValue(ref(db, 'banned'), (snap) => {
     bannedUsers = snap.val() || {};
@@ -693,39 +708,47 @@ function joinRoom(id) {
     usersUnsub = onValue(ref(db, 'users'), snap => {
       allUsers = snap.val() || {};
       if (adminPanel.classList.contains('show')) renderAdminPanel();
+      renderUsers(Object.fromEntries(
+        Object.entries(allUsers).map(([uid, u]) => [uid, {
+          name: u.name, color: colorForUid(uid), x: 0, y: 0
+        }])
+      ));
     });
   }
 }
 
 // ============ ユーザーアバター表示 ============
 function renderUsers(cursorsData) {
-  usersEl.innerHTML = '';
   const seen = new Set();
+  const existing = new Set();
+  Array.from(usersEl.children).forEach(c => existing.add(c.dataset.uid));
+
   Object.entries(cursorsData).forEach(([uid, cur]) => {
     if (seen.has(uid)) return;
     seen.add(uid);
+    if (existing.has(uid)) return;
 
     const info = allUsers[uid] || {};
     const dot = document.createElement('div');
     dot.className = 'user-dot';
+    dot.dataset.uid = uid;
     if (uid === currentUser.uid) dot.classList.add('me');
-    if (ADMIN_EMAILS.includes(info.email) || (info.email && allUsers[uid]?.email && ADMIN_EMAILS.includes(allUsers[uid].email))) {
-      dot.classList.add('admin');
-    }
+    if (isAdminEmail(info.email) || isAdminUid(uid)) dot.classList.add('admin');
 
     if (info.photo) {
       dot.innerHTML = `<img src="${info.photo}" alt="">`;
     } else {
-      dot.style.background = cur.color;
+      dot.style.background = cur.color || colorForUid(uid);
       dot.textContent = (cur.name || '?').slice(-2);
     }
-    dot.title = `${cur.name}${isAdminEmail(info.email) ? ' 👑' : ''}`;
+    dot.title = `${cur.name || uid}${(isAdminEmail(info.email) || isAdminUid(uid)) ? ' 👑' : ''}`;
     usersEl.appendChild(dot);
   });
-}
 
-function isAdminEmail(email) {
-  return email && ADMIN_EMAILS.includes(email);
+  // 消えたユーザーを削除
+  Array.from(usersEl.children).forEach(c => {
+    if (!seen.has(c.dataset.uid)) c.remove();
+  });
 }
 
 // ============ 要素DOM ============
@@ -884,9 +907,9 @@ function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
-const pushHTML = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/html`), v); }, 500);
-const pushCSS  = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/css`), v); }, 500);
-const pushJS   = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/js`), v); }, 500);
+const pushHTML = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/html`), v).catch(()=>{}); }, 500);
+const pushCSS  = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/css`), v).catch(()=>{}); }, 500);
+const pushJS   = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/js`), v).catch(()=>{}); }, 500);
 
 htmlCode.addEventListener('input', () => { currentHTML = htmlCode.value; pushHTML(currentHTML); updatePreview(); });
 cssCode.addEventListener('input',  () => { currentCSS  = cssCode.value;  pushCSS(currentCSS);  updatePreview(); });
@@ -968,7 +991,6 @@ window.addEventListener('message', e => {
 adminBtn.addEventListener('click', () => {
   adminPanel.classList.toggle('show');
   if (adminPanel.classList.contains('show')) {
-    // 最新のユーザー一覧を取得して表示
     get(ref(db, 'users')).then(snap => {
       allUsers = snap.val() || {};
       renderAdminPanel();
@@ -991,14 +1013,13 @@ function renderAdminPanel() {
     return;
   }
 
-  // 最終ログイン順でソート
   users.sort((a, b) => (b[1].lastSeen || 0) - (a[1].lastSeen || 0));
 
   apBody.innerHTML = '';
   users.forEach(([uid, u]) => {
     const isBanned = !!bannedUsers[uid];
     const isSelf = uid === currentUser.uid;
-    const isAdminUser = isAdminEmail(u.email) || (uid === '48IOjYhn3VZNPUKyPE5LA85J0o93') || (uid === 'dXz1d6jdMWMB7l5pQGCpEYkukZi2');
+    const isAdminUser = isAdminEmail(u.email) || isAdminUid(uid);
 
     const row = document.createElement('div');
     row.className = 'user-row' + (isBanned ? ' banned' : '');
@@ -1019,7 +1040,6 @@ function renderAdminPanel() {
       </div>
     `;
 
-    // 管理者はBAN不可（自分も不可）
     if (!isAdminUser && !isSelf) {
       const btn = document.createElement('button');
       btn.className = 'ubtn' + (isBanned ? ' unban' : '');
@@ -1084,12 +1104,10 @@ currentHTML = INITIAL_HTML;
 currentCSS = INITIAL_CSS;
 currentJS = INITIAL_JS;
 
-// ============ 離脱時にカーソル削除 ============
 window.addEventListener('beforeunload', () => {
   if (myCursorRef) { try { remove(myCursorRef); } catch(e){} }
 });
 
-// ============ 初期メッセージ ============
 console.log('%c🎨 FigmaDG CollabApp', 'color:#0d99ff;font-size:20px;font-weight:bold');
 console.log('ログイン後、部屋IDを共有して他のユーザーとコラボできます。');
 </script>
