@@ -69,8 +69,10 @@
     background: #f7f7f9; overflow: hidden;
     background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
     background-size: 24px 24px;
-    cursor: default;
-    user-select: none;
+    cursor: default; user-select: none;
+  }
+  #canvas.no-grid {
+    background-image: none;
   }
   #canvas.selecting { cursor: crosshair; }
   #canvas .selection-rect {
@@ -94,9 +96,6 @@
   .element.selected {
     box-shadow: 0 0 0 3px #0d99ff, 0 4px 12px rgba(0,0,0,0.15);
   }
-  .element.selected-in-group {
-    box-shadow: 0 0 0 2px rgba(13,153,255,0.5);
-  }
   .element.hidden-element { display: none !important; }
   .element.faded { opacity: 0.2 !important; }
 
@@ -105,7 +104,6 @@
     background: transparent !important;
     overflow: visible !important;
   }
-  /* スクリプト要素の外枠クリック領域 */
   .element.has-script .click-outline {
     position: absolute; inset: 0;
     z-index: 3;
@@ -129,8 +127,7 @@
     border-radius: 4px;
     display: flex; align-items: center; justify-content: center;
     font-size: 11px; font-weight: 600;
-    cursor: move;
-    opacity: 0;
+    cursor: move; opacity: 0;
     transition: opacity 0.15s;
     z-index: 8;
     white-space: nowrap; overflow: hidden;
@@ -143,22 +140,16 @@
   }
   .element.has-script .script-wrapper {
     width: 100%; height: 100%;
-    display: block;
-    background: transparent;
-    border-radius: 4px;
-    overflow: hidden;
-    position: relative;
-    z-index: 2;
+    display: block; background: transparent;
+    border-radius: 4px; overflow: hidden;
+    position: relative; z-index: 2;
   }
   .element.has-script .script-frame {
     width: 100%; height: 100%;
     border: none; display: block;
-    background: transparent;
-    pointer-events: auto;
+    background: transparent; pointer-events: auto;
   }
-  .element.has-script.dragging .script-frame {
-    pointer-events: none;
-  }
+  .element.has-script.dragging .script-frame,
   .element.has-script.dragging .click-outline {
     pointer-events: none;
   }
@@ -169,7 +160,6 @@
     border-radius: 50%; display: none; z-index: 15;
   }
   .element.selected .resize-handle { display: block; }
-  .element.selected-in-group .resize-handle { display: none; }
   .resize-handle.br { right: -5px; bottom: -5px; cursor: se-resize; }
   .resize-handle.bl { left: -5px; bottom: -5px; cursor: sw-resize; }
   .resize-handle.tr { right: -5px; top: -5px; cursor: ne-resize; }
@@ -213,7 +203,6 @@
   .element.has-name .name-label { display: block; }
   .element.selected .name-label { display: block; }
 
-  /* グループ選択中のバッジ */
   .group-indicator {
     position: absolute;
     border: 2px dashed #f39c12;
@@ -287,6 +276,7 @@
     transition: transform 0.08s linear;
     transform-origin: top left;
   }
+  .remote-cursor.hidden { display: none; }
   .remote-cursor svg { display: block; }
   .remote-cursor .label {
     position: absolute; left: 14px; top: 14px;
@@ -428,11 +418,12 @@
     max-height: 85vh; display: flex; flex-direction: column;
     box-shadow: 0 20px 60px rgba(0,0,0,0.7);
   }
+  .modal-box.narrow { max-width: 500px; }
   .modal-head {
     padding: 14px 18px; border-bottom: 1px solid #444;
     display: flex; justify-content: space-between; align-items: center;
   }
-  .modal-head h3 { font-size: 15px; }
+  .modal-head h3 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
   .modal-head .tabs { display: flex; gap: 4px; }
   .modal-head .tabs button {
     background: #3a3a3a; color: #ccc;
@@ -464,6 +455,114 @@
   .modal-foot .actions button.remove { background: #c0392b; color: white; }
   .modal-foot .actions button:hover { filter: brightness(1.15); }
 
+  /* ===== 設定モーダル ===== */
+  #settingsModal .settings-section {
+    background: #1f1f1f;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    border-left: 3px solid #0d99ff;
+  }
+  #settingsModal .settings-section h4 {
+    font-size: 13px;
+    color: #0d99ff;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #settingsModal .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #2a2a2a;
+    gap: 12px;
+  }
+  #settingsModal .setting-row:last-child { border-bottom: none; }
+  #settingsModal .setting-label {
+    flex: 1; font-size: 13px; color: #ddd;
+  }
+  #settingsModal .setting-label .desc {
+    font-size: 11px; color: #888; margin-top: 2px;
+  }
+  #settingsModal .setting-control {
+    display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
+  }
+  /* トグルスイッチ */
+  .toggle {
+    position: relative;
+    width: 44px; height: 24px;
+    background: #444;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: #0d99ff; }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 20px; height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(20px); }
+  #settingsModal input[type="text"],
+  #settingsModal input[type="number"] {
+    background: #2a2a2a; color: #eee;
+    border: 1px solid #555; border-radius: 4px;
+    padding: 6px 10px; font-size: 13px;
+    outline: none;
+  }
+  #settingsModal input:focus { border-color: #0d99ff; }
+  #settingsModal button.small {
+    background: #3a3a3a; color: #eee;
+    border: 1px solid #555; border-radius: 4px;
+    padding: 6px 12px; font-size: 12px; cursor: pointer;
+  }
+  #settingsModal button.small:hover { background: #4a4a4a; }
+  #settingsModal button.primary {
+    background: #0d99ff; color: white; border: none;
+  }
+  #settingsModal button.primary:hover { background: #0b7fd9; }
+  .bgm-status {
+    font-size: 11px;
+    color: #2ecc71;
+    background: #0d1f14;
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+  }
+  .bgm-status.paused { color: #f39c12; background: #1f1a0d; }
+  .bgm-status.empty { color: #888; background: #1a1a1a; }
+  .vol-slider {
+    -webkit-appearance: none;
+    width: 100px; height: 4px;
+    background: #444; border-radius: 2px;
+    outline: none;
+  }
+  .vol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: #0d99ff;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .vol-slider::-moz-range-thumb {
+    width: 14px; height: 14px;
+    background: #0d99ff;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+
   /* ===== コードエディタ ===== */
   #codeTextarea {
     width: 100%; min-height: 280px;
@@ -492,7 +591,6 @@
     border: 1px solid #555; padding: 4px 10px;
     border-radius: 4px; font-size: 11px; cursor: pointer;
   }
-  .code-foot .examples button:hover { background: #4a4a4a; color: white; }
 
   /* ===== ビジュアルスクリプト ===== */
   #visualScript .vs-section {
@@ -503,21 +601,15 @@
     border-left: 3px solid #9b59b6;
   }
   #visualScript .vs-section h4 {
-    font-size: 13px;
-    color: #9b59b6;
+    font-size: 13px; color: #9b59b6;
     margin-bottom: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    text-transform: uppercase; letter-spacing: 1px;
   }
   #visualScript .vs-row {
     display: flex; align-items: center;
-    gap: 8px; margin-bottom: 10px;
-    flex-wrap: wrap;
+    gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
   }
-  #visualScript label {
-    font-size: 12px; color: #aaa;
-    min-width: 80px;
-  }
+  #visualScript label { font-size: 12px; color: #aaa; min-width: 80px; }
   #visualScript select, #visualScript input[type="text"], #visualScript input[type="number"] {
     background: #2a2a2a; color: #eee;
     border: 1px solid #555; border-radius: 4px;
@@ -525,33 +617,22 @@
     outline: none; min-width: 120px;
   }
   #visualScript select:focus, #visualScript input:focus { border-color: #9b59b6; }
-  #visualScript .vs-target-info {
-    font-size: 11px; color: #6cc;
-    background: #1a1a1a; padding: 6px 10px;
-    border-radius: 4px;
-    font-family: monospace;
-    margin-left: 88px;
-  }
   #visualScript .vs-help {
     font-size: 12px; color: #888;
     background: #1a1a1a;
-    padding: 10px 12px;
-    border-radius: 6px;
-    margin-bottom: 14px;
-    line-height: 1.6;
+    padding: 10px 12px; border-radius: 6px;
+    margin-bottom: 14px; line-height: 1.6;
   }
   #visualScript .vs-preview {
-    font-size: 12px;
-    color: #2ecc71;
+    font-size: 12px; color: #2ecc71;
     background: #0d1f14;
-    padding: 10px 12px;
-    border-radius: 6px;
+    padding: 10px 12px; border-radius: 6px;
     font-family: monospace;
     border-left: 3px solid #2ecc71;
     margin-top: 8px;
   }
 
-  /* ===== グループ編集モーダル ===== */
+  /* ===== グループ編集 ===== */
   .group-member-list {
     background: #1f1f1f; border-radius: 6px;
     padding: 10px; max-height: 200px;
@@ -565,12 +646,9 @@
   }
   .group-member-item .gm-type {
     background: #3a3a3a; padding: 2px 6px;
-    border-radius: 3px; font-size: 10px;
-    color: #0d99ff;
+    border-radius: 3px; font-size: 10px; color: #0d99ff;
   }
-  .group-member-item .gm-name {
-    flex: 1; color: #ddd;
-  }
+  .group-member-item .gm-name { flex: 1; color: #ddd; }
 
   /* ===== ログ ===== */
   #scriptLog {
@@ -607,6 +685,7 @@
     transition: opacity 0.2s;
   }
   #coordToast.show { opacity: 1; }
+  #coordToast.hidden-by-setting { display: none !important; }
 
   /* ===== スラッシュメニュー ===== */
   #slashMenu {
@@ -792,6 +871,12 @@
     z-index: 10002; display: none; font-weight: 600;
   }
   #pasteHint.show { display: block; }
+
+  /* BGMボタン強調表示 */
+  #bgmBtn.playing {
+    background: #27ae60 !important;
+    border-color: #27ae60 !important;
+  }
 </style>
 </head>
 <body>
@@ -823,11 +908,13 @@
   <button id="slashBtn">/ コマンド</button>
   <button id="chatBtn">💬 履歴</button>
   <button id="logBtn" title="ログ表示">📜 ログ</button>
+  <button id="bgmBtn" title="BGM">🎵 BGM</button>
   <button id="clearBtn">🗑 全消去</button>
   <span class="sep"></span>
   <div class="coord-display" id="coordDisplay">X: --  Y: --</div>
   <span class="sep"></span>
   <button id="adminBtn" style="display:none">👑 管理</button>
+  <button id="settingsBtn" title="設定">⚙️ 設定</button>
   <div id="users" style="margin-left:8px"></div>
   <button id="logoutBtn" style="margin-left:auto">ログアウト</button>
 </div>
@@ -898,7 +985,7 @@
         例: 「このボタンを押したら、〇〇を (x, y) に表示する」
       </div>
       <div class="vs-section">
-        <h4>① トリガー（きっかけ）</h4>
+        <h4>① トリガー</h4>
         <div class="vs-row">
           <label>動作</label>
           <select id="vsTrigger">
@@ -909,18 +996,18 @@
         </div>
       </div>
       <div class="vs-section">
-        <h4>② アクション（何が起きる？）</h4>
+        <h4>② アクション</h4>
         <div class="vs-row">
           <label>アクション</label>
           <select id="vsAction">
             <option value="show">対象を表示</option>
             <option value="hide">対象を隠す</option>
-            <option value="toggle">対象の表示/非表示を切替</option>
-            <option value="appear">対象をフェードイン（透明→不透明）</option>
-            <option value="disappear">対象をフェードアウト（不透明→透明）</option>
-            <option value="move">対象を指定座標に移動</option>
-            <option value="color">対象の色を変更</option>
-            <option value="notify">メッセージを表示</option>
+            <option value="toggle">表示/非表示を切替</option>
+            <option value="appear">フェードイン</option>
+            <option value="disappear">フェードアウト</option>
+            <option value="move">指定座標に移動</option>
+            <option value="color">色を変更</option>
+            <option value="notify">メッセージ表示</option>
           </select>
         </div>
         <div class="vs-row">
@@ -958,7 +1045,7 @@
 
 <!-- グループ編集 -->
 <div class="modal" id="groupModal">
-  <div class="modal-box">
+  <div class="modal-box narrow">
     <div class="modal-head">
       <h3>📦 グループ化</h3>
       <button class="close-btn" id="gmClose">×</button>
@@ -970,14 +1057,169 @@
       </div>
       <p style="font-size:12px;color:#aaa;margin-top:12px;">メンバー:</p>
       <div class="group-member-list" id="gmList"></div>
-      <p style="font-size:11px;color:#888;margin-top:10px;">
-        💡 グループ化すると、以降はグループ単位で移動・選択できます。
-      </p>
     </div>
     <div class="modal-foot">
       <div class="actions">
         <button class="cancel" id="gmClose2">キャンセル</button>
         <button class="save" id="gmSave">グループ作成</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 設定モーダル ============ -->
+<div class="modal" id="settingsModal">
+  <div class="modal-box narrow">
+    <div class="modal-head">
+      <h3>⚙️ 設定</h3>
+      <button class="close-btn" id="settingsClose">×</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- 表示 -->
+      <div class="settings-section">
+        <h4>👁 表示</h4>
+        <div class="setting-row">
+          <div class="setting-label">
+            グリッドを表示
+            <div class="desc">背景のドット模様</div>
+          </div>
+          <div class="setting-control">
+            <div class="toggle on" id="toggleGrid"></div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            他ユーザーのカーソルを表示
+            <div class="desc">リアルタイムのカーソル</div>
+          </div>
+          <div class="setting-control">
+            <div class="toggle on" id="toggleCursors"></div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            座標ディスプレイを表示
+            <div class="desc">ツールバーの X/Y 表示</div>
+          </div>
+          <div class="setting-control">
+            <div class="toggle on" id="toggleCoordDisplay"></div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            クリック時の座標トースト
+            <div class="desc">何もないところをクリックしたときの緑の吹き出し</div>
+          </div>
+          <div class="setting-control">
+            <div class="toggle on" id="toggleCoordToast"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ログ -->
+      <div class="settings-section">
+        <h4>📜 ログ</h4>
+        <div class="setting-row">
+          <div class="setting-label">
+            ログを自動表示
+            <div class="desc">イベント発生時にログパネルを開く</div>
+          </div>
+          <div class="setting-control">
+            <div class="toggle on" id="toggleLogAuto"></div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            座標クリックをログに記録
+            <div class="desc">クリック時の座標をログに残す</div>
+          </div>
+          <div class="setting-control">
+            <div class="toggle on" id="toggleLogCoord"></div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            要素イベントをログに記録
+            <div class="desc">他ユーザーが要素を追加した等</div>
+          </div>
+          <div class="setting-control">
+            <div class="toggle on" id="toggleLogEvent"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BGM -->
+      <div class="settings-section">
+        <h4>🎵 BGM（自分のみ）</h4>
+        <div class="setting-row">
+          <div class="setting-label">
+            音声を再生
+            <div class="desc">他のユーザーには聞こえません</div>
+          </div>
+          <div class="setting-control">
+            <div class="toggle" id="toggleBgm"></div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            音量
+          </div>
+          <div class="setting-control">
+            <input type="range" class="vol-slider" id="bgmVolume" min="0" max="100" value="50">
+            <span id="bgmVolLabel" style="font-size:11px;color:#999;min-width:36px;">50%</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label" style="flex:1;">
+            音声URL
+            <div class="desc">mp3 / ogg / wav のURL</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:4px;">
+          <input type="text" id="bgmUrl" placeholder="https://.../music.mp3" style="flex:1;">
+          <button class="small primary" id="bgmLoad">読込</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <input type="file" id="bgmFile" accept="audio/*" style="flex:1;font-size:11px;">
+        </div>
+        <div class="bgm-status empty" id="bgmStatus">
+          <span id="bgmStatusText">未設定</span>
+          <span>
+            <button class="small" id="bgmPlayPause" style="display:none;">▶</button>
+            <button class="small" id="bgmStop" style="display:none;">■</button>
+          </span>
+        </div>
+      </div>
+
+      <!-- その他 -->
+      <div class="settings-section">
+        <h4>🔧 その他</h4>
+        <div class="setting-row">
+          <div class="setting-label">
+            履歴チャットを自動で開く
+            <div class="desc">ログイン時にチャット履歴を表示</div>
+          </div>
+          <div class="setting-control">
+            <div class="toggle" id="toggleAutoChat"></div>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            効果音
+            <div class="desc">要素追加時などに音を鳴らす</div>
+          </div>
+          <div class="setting-control">
+            <div class="toggle" id="toggleSfx"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-foot">
+      <div class="actions">
+        <button class="cancel" id="settingsReset">設定をリセット</button>
+        <button class="save" id="settingsClose2">閉じる</button>
       </div>
     </div>
   </div>
@@ -1016,6 +1258,9 @@
   <div id="logBody"></div>
 </div>
 
+<!-- BGM オーディオ -->
+<audio id="bgmAudio" loop></audio>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, onValue, set, onDisconnect, remove, push, update, get, child }
@@ -1043,14 +1288,42 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
+// ============ 設定 (localStorage) ============
+const SETTINGS_KEY = 'figmadg-settings-v1';
+const DEFAULT_SETTINGS = {
+  showGrid: true,
+  showRemoteCursors: true,
+  showCoordDisplay: true,
+  showCoordToast: true,
+  logAutoShow: true,
+  logCoord: true,
+  logEvent: true,
+  bgmEnabled: false,
+  bgmVolume: 50,
+  bgmUrl: '',
+  autoChat: false,
+  sfx: false
+};
+let settings = { ...DEFAULT_SETTINGS };
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) settings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+  } catch(e) {}
+}
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch(e) {}
+}
+loadSettings();
+
 // ============ 状態 ============
 let currentUser = null;
 let isAdmin = false;
 let roomId = null;
 let elements = {};
 let elementRefs = {};
-let groups = {};              // { groupId: { name, members: [ids], x, y, width, height } }
-let groupIndicators = {};     // groupId -> DOM
+let groups = {};
+let groupIndicators = {};
 let myCursorRef = null;
 let unsubscribers = [];
 let banUnsub = null, usersUnsub = null, chatUnsub = null;
@@ -1068,11 +1341,10 @@ let currentCodeTab = 'html';
 let editingActionId = null;
 let editingActionData = {};
 let scriptLogLines = [];
-
-// 選択範囲
 let isSelecting = false;
 let selectionStart = { x: 0, y: 0 };
 
+// DOM
 const canvas = document.getElementById('canvas');
 const selectionRect = document.getElementById('selectionRect');
 const statusEl = document.getElementById('status');
@@ -1099,6 +1371,9 @@ const coordDisplay = document.getElementById('coordDisplay');
 const coordToast = document.getElementById('coordToast');
 const visualModal = document.getElementById('visualModal');
 const groupModal = document.getElementById('groupModal');
+const settingsModal = document.getElementById('settingsModal');
+const bgmAudio = document.getElementById('bgmAudio');
+const bgmBtn = document.getElementById('bgmBtn');
 
 // ============ 定数 ============
 const COMMANDS = [
@@ -1126,7 +1401,7 @@ const STICKY_COLORS = ['#fef08a','#fbcfe8','#bfdbfe','#bbf7d0','#fed7aa','#e9d5f
 const SHAPE_COLORS  = ['#0d99ff','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'];
 const STAMPS        = ['⭐','❤️','👍','🎉','🔥','✨','💯','👀','🚀','🎨','💡','✅'];
 
-// ============ コードテンプレート ============
+// コードテンプレート
 const CODE_TEMPLATES = {
   button: {
     html: `<button id="btn">クリック！</button>\n<p id="out"></p>`,
@@ -1167,9 +1442,7 @@ function escapeHtml(s) {
 }
 function newElemId() { return 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
 function newGroupId() { return 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
-
 function getElementSize(el) {
-  // 座標系での推定サイズ
   if (el.width && el.height) return { w: el.width, h: el.height };
   switch (el.type) {
     case 'sticky': return { w: 180, h: 180 };
@@ -1184,6 +1457,219 @@ function getElementSize(el) {
     default: return { w: 100, h: 100 };
   }
 }
+
+// ============ 設定適用 ============
+function applySettings() {
+  // グリッド
+  canvas.classList.toggle('no-grid', !settings.showGrid);
+  // 座標ディスプレイ
+  coordDisplay.style.display = settings.showCoordDisplay ? '' : 'none';
+  // 座標トースト
+  coordToast.classList.toggle('hidden-by-setting', !settings.showCoordToast);
+  // リモートカーソル
+  canvas.querySelectorAll('.remote-cursor').forEach(el => {
+    el.classList.toggle('hidden', !settings.showRemoteCursors);
+  });
+  // BGM
+  bgmAudio.volume = (settings.bgmVolume || 50) / 100;
+  bgmBtn.classList.toggle('playing', settings.bgmEnabled && !bgmAudio.paused);
+}
+
+// ============ 設定UI ============
+function bindToggle(id, key, onChange) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('on', !!settings[key]);
+  el.addEventListener('click', () => {
+    settings[key] = !settings[key];
+    el.classList.toggle('on', settings[key]);
+    saveSettings();
+    applySettings();
+    if (onChange) onChange(settings[key]);
+  });
+}
+
+function openSettings() {
+  // 現在値を反映
+  document.getElementById('toggleGrid').classList.toggle('on', settings.showGrid);
+  document.getElementById('toggleCursors').classList.toggle('on', settings.showRemoteCursors);
+  document.getElementById('toggleCoordDisplay').classList.toggle('on', settings.showCoordDisplay);
+  document.getElementById('toggleCoordToast').classList.toggle('on', settings.showCoordToast);
+  document.getElementById('toggleLogAuto').classList.toggle('on', settings.logAutoShow);
+  document.getElementById('toggleLogCoord').classList.toggle('on', settings.logCoord);
+  document.getElementById('toggleLogEvent').classList.toggle('on', settings.logEvent);
+  document.getElementById('toggleBgm').classList.toggle('on', settings.bgmEnabled);
+  document.getElementById('toggleAutoChat').classList.toggle('on', settings.autoChat);
+  document.getElementById('toggleSfx').classList.toggle('on', settings.sfx);
+  document.getElementById('bgmVolume').value = settings.bgmVolume || 50;
+  document.getElementById('bgmVolLabel').textContent = (settings.bgmVolume || 50) + '%';
+  document.getElementById('bgmUrl').value = settings.bgmUrl || '';
+  updateBgmStatus();
+  settingsModal.classList.add('show');
+}
+
+function updateBgmStatus() {
+  const statusEl = document.getElementById('bgmStatus');
+  const textEl = document.getElementById('bgmStatusText');
+  const playBtn = document.getElementById('bgmPlayPause');
+  const stopBtn = document.getElementById('bgmStop');
+
+  statusEl.classList.remove('empty', 'paused');
+
+  if (!settings.bgmUrl && !bgmAudio.src) {
+    textEl.textContent = '未設定';
+    statusEl.classList.add('empty');
+    playBtn.style.display = 'none';
+    stopBtn.style.display = 'none';
+    return;
+  }
+
+  playBtn.style.display = '';
+  stopBtn.style.display = '';
+
+  if (bgmAudio.paused) {
+    textEl.textContent = '⏸ 一時停止中';
+    statusEl.classList.add('paused');
+    playBtn.textContent = '▶';
+  } else {
+    textEl.textContent = '🎵 再生中';
+    playBtn.textContent = '⏸';
+  }
+}
+
+// 設定トグル登録
+bindToggle('toggleGrid', 'showGrid');
+bindToggle('toggleCursors', 'showRemoteCursors');
+bindToggle('toggleCoordDisplay', 'showCoordDisplay');
+bindToggle('toggleCoordToast', 'showCoordToast');
+bindToggle('toggleLogAuto', 'logAutoShow');
+bindToggle('toggleLogCoord', 'logCoord');
+bindToggle('toggleLogEvent', 'logEvent');
+bindToggle('toggleAutoChat', 'autoChat');
+bindToggle('toggleSfx', 'sfx');
+bindToggle('toggleBgm', 'bgmEnabled', async (on) => {
+  if (on && settings.bgmUrl) {
+    try {
+      if (!bgmAudio.src || !bgmAudio.src.includes(settings.bgmUrl)) {
+        bgmAudio.src = settings.bgmUrl;
+      }
+      await bgmAudio.play();
+      updateBgmStatus();
+      bgmBtn.classList.add('playing');
+      showHint('🎵 BGM 再生中');
+    } catch (e) {
+      console.warn(e);
+      showHint('⚠️ 音声再生失敗');
+    }
+  } else {
+    bgmAudio.pause();
+    updateBgmStatus();
+    bgmBtn.classList.remove('playing');
+  }
+});
+
+document.getElementById('bgmVolume').addEventListener('input', (e) => {
+  const v = parseInt(e.target.value);
+  settings.bgmVolume = v;
+  bgmAudio.volume = v / 100;
+  document.getElementById('bgmVolLabel').textContent = v + '%';
+  saveSettings();
+});
+
+document.getElementById('bgmLoad').addEventListener('click', async () => {
+  const url = document.getElementById('bgmUrl').value.trim();
+  if (!url) return;
+  settings.bgmUrl = url;
+  saveSettings();
+  bgmAudio.src = url;
+  try {
+    bgmAudio.load();
+    showHint('🎵 BGM URL を読み込みました');
+    updateBgmStatus();
+  } catch (e) {
+    showHint('❌ 読み込み失敗');
+  }
+});
+
+document.getElementById('bgmFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  settings.bgmUrl = url;
+  saveSettings();
+  bgmAudio.src = url;
+  showHint('🎵 ローカル音声を読み込みました');
+  updateBgmStatus();
+});
+
+document.getElementById('bgmPlayPause').addEventListener('click', async () => {
+  if (bgmAudio.paused) {
+    if (!bgmAudio.src) {
+      showHint('⚠️ 音声が設定されていません');
+      return;
+    }
+    try {
+      await bgmAudio.play();
+      showHint('🎵 再生');
+    } catch (e) {
+      showHint('⚠️ 再生失敗');
+    }
+  } else {
+    bgmAudio.pause();
+    showHint('⏸ 一時停止');
+  }
+  updateBgmStatus();
+});
+
+document.getElementById('bgmStop').addEventListener('click', () => {
+  bgmAudio.pause();
+  bgmAudio.currentTime = 0;
+  showHint('⏹ 停止');
+  updateBgmStatus();
+});
+
+// BGMボタン（ツールバー）
+bgmBtn.addEventListener('click', async () => {
+  if (!settings.bgmUrl) {
+    openSettings();
+    showHint('⚙️ 設定からBGMを読み込んでください');
+    return;
+  }
+  if (bgmAudio.paused) {
+    if (!bgmAudio.src) bgmAudio.src = settings.bgmUrl;
+    try {
+      await bgmAudio.play();
+      settings.bgmEnabled = true;
+      document.getElementById('toggleBgm').classList.add('on');
+      bgmBtn.classList.add('playing');
+      showHint('🎵 BGM 再生');
+    } catch (e) {
+      showHint('⚠️ 音声再生失敗');
+    }
+  } else {
+    bgmAudio.pause();
+    settings.bgmEnabled = false;
+    document.getElementById('toggleBgm').classList.remove('on');
+    bgmBtn.classList.remove('playing');
+    showHint('⏸ BGM 停止');
+  }
+  saveSettings();
+  updateBgmStatus();
+});
+
+// 設定を保存するたびにトグルを反映
+document.getElementById('settingsClose').addEventListener('click', () => settingsModal.classList.remove('show'));
+document.getElementById('settingsClose2').addEventListener('click', () => settingsModal.classList.remove('show'));
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+
+document.getElementById('settingsReset').addEventListener('click', () => {
+  if (!confirm('設定をリセットしますか？')) return;
+  settings = { ...DEFAULT_SETTINGS };
+  saveSettings();
+  applySettings();
+  openSettings();
+  showHint('⚙️ 設定をリセット');
+});
 
 // ============ ログイン ============
 document.getElementById('googleLogin').addEventListener('click', async () => {
@@ -1206,13 +1692,7 @@ function showBanScreen() {
   banScreen.classList.add('show');
   document.getElementById('toolbar').style.display = 'none';
   document.getElementById('main').style.display = 'none';
-  adminPanel.classList.remove('show');
-  chatPanel.classList.remove('show');
-  slashMenu.classList.remove('show');
-  propPanel.classList.remove('show');
-  codeModal.classList.remove('show');
-  visualModal.classList.remove('show');
-  groupModal.classList.remove('show');
+  document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
   setTimeout(() => {
     try {
       window.history.replaceState(null, '', 'about:blank');
@@ -1276,7 +1756,6 @@ function joinRoom(id) {
   roomId = id;
   statusEl.textContent = `📁 ${roomId}  |  ${currentUser.displayName || currentUser.email}`;
 
-  // カーソル
   const cursorsRef = ref(db, `rooms/${roomId}/cursors`);
   myCursorRef = ref(db, `rooms/${roomId}/cursors/${currentUser.uid}`);
   onDisconnect(myCursorRef).remove();
@@ -1285,6 +1764,7 @@ function joinRoom(id) {
     const data = snap.val() || {};
     canvas.querySelectorAll('.remote-cursor').forEach(el => el.remove());
     renderUsers(data);
+    if (!settings.showRemoteCursors) return;
     Object.entries(data).forEach(([uid, cur]) => {
       if (uid === currentUser.uid) return;
       const el = document.createElement('div');
@@ -1300,7 +1780,6 @@ function joinRoom(id) {
     });
   }));
 
-  // 吹き出し
   unsubscribers.push(onValue(ref(db, `rooms/${roomId}/bubbles`), snap => {
     const data = snap.val() || {};
     canvas.querySelectorAll('.cursor-bubble').forEach(el => el.remove());
@@ -1317,7 +1796,6 @@ function joinRoom(id) {
     });
   }));
 
-  // 要素
   unsubscribers.push(onValue(ref(db, `rooms/${roomId}/elements`), snap => {
     const data = snap.val() || {};
     Object.keys(elementRefs).forEach(eid => {
@@ -1335,14 +1813,7 @@ function joinRoom(id) {
       if (isNew) {
         elementRefs[eid] = createElementDOM(eid, el);
         canvas.appendChild(elementRefs[eid]);
-        // グループ化されている場合は自動で追加
-        if (el.groupId && groups[el.groupId]) {
-          if (!groups[el.groupId].members) groups[el.groupId].members = [];
-          if (!groups[el.groupId].members.includes(eid)) {
-            groups[el.groupId].members.push(eid);
-          }
-        }
-        if (el.author !== (currentUser.displayName || currentUser.email)) {
+        if (el.author !== (currentUser.displayName || currentUser.email) && settings.logEvent) {
           const label = el.name || TYPE_LABEL[el.type] || el.type;
           addLog('event', `✨ 「${label}」が (${el.x}, ${el.y}) に現れました by ${el.author || '?'}`);
         }
@@ -1354,7 +1825,6 @@ function joinRoom(id) {
     updatePropPanelIfNeeded();
   }));
 
-  // グループ
   unsubscribers.push(onValue(ref(db, `rooms/${roomId}/groups`), snap => {
     groups = snap.val() || {};
     refreshAllGroupIndicators();
@@ -1373,6 +1843,8 @@ function joinRoom(id) {
       if (adminPanel.classList.contains('show')) renderAdminPanel();
     });
   }
+
+  if (settings.autoChat) toggleChat(true);
 }
 
 // ============ 要素DOM ============
@@ -1394,7 +1866,6 @@ function createElementDOM(id, el) {
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
   const hasAction = el.action && el.action.action;
 
-  // 名前ラベル
   const nameLabel = document.createElement('div');
   nameLabel.className = 'name-label';
   nameLabel.textContent = el.name || TYPE_LABEL[el.type] || el.type;
@@ -1402,19 +1873,16 @@ function createElementDOM(id, el) {
   if (el.name) div.classList.add('has-name');
 
   if (hasCode) {
-    // === スクリプト要素 ===
     div.classList.add('has-script');
     div.style.width  = (el.width || 240) + 'px';
     div.style.height = (el.height || 160) + 'px';
 
-    // ドラッグバー
     const dragBar = document.createElement('div');
     dragBar.className = 'drag-bar';
     dragBar.textContent = '⠿ ' + (el.name || 'スクリプト') + ' — ドラッグで移動';
     dragBar.addEventListener('mousedown', (e) => startDragFromBar(e, id));
     div.appendChild(dragBar);
 
-    // iframe
     const wrapper = document.createElement('div');
     wrapper.className = 'script-wrapper';
     wrapper.innerHTML = `<iframe class="script-frame" sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe>`;
@@ -1422,40 +1890,32 @@ function createElementDOM(id, el) {
     const frame = wrapper.querySelector('iframe');
     frame.srcdoc = buildIframeDoc(el.code, id);
 
-    // 外枠クリック領域（最前面、iframeの上に重ねる）
     const outline = document.createElement('div');
     outline.className = 'click-outline';
     outline.addEventListener('mousedown', (e) => {
-      // 外周ドラッグで要素移動
       e.stopPropagation();
-      const target = e.currentTarget.parentElement;
       const elData = elements[id];
       if (!elData) return;
-
-      // Shift/Ctrlで複数選択
       if (e.shiftKey || e.metaKey || e.ctrlKey) {
         toggleSelection(id);
         return;
       }
-
       selectElement(id, true);
       isDragging = true;
       currentDragId = id;
       const rect = canvas.getBoundingClientRect();
       dragOffset.x = (e.clientX - rect.left) - elData.x;
       dragOffset.y = (e.clientY - rect.top) - elData.y;
-      target.classList.add('dragging');
+      div.classList.add('dragging');
     });
     div.appendChild(outline);
 
-    // バッジ
     const badge = document.createElement('div');
     badge.className = 'script-badge' + (hasAction ? ' has-action' : '');
     badge.textContent = hasAction ? '🎯' : '⚡';
     badge.title = hasAction ? 'ビジュアルスクリプト有効' : 'コード有効';
     div.appendChild(badge);
   } else {
-    // === 通常要素 ===
     switch (el.type) {
       case 'sticky':
         div.classList.add('el-sticky');
@@ -1507,7 +1967,6 @@ function createElementDOM(id, el) {
     }
   }
 
-  // リサイズハンドル
   ['tl','tr','bl','br'].forEach(pos => {
     const h = document.createElement('div');
     h.className = 'resize-handle ' + pos;
@@ -1515,7 +1974,6 @@ function createElementDOM(id, el) {
     div.appendChild(h);
   });
 
-  // 削除ボタン
   const del = document.createElement('div');
   del.className = 'delete-btn';
   del.textContent = '×';
@@ -1525,16 +1983,13 @@ function createElementDOM(id, el) {
   });
   div.appendChild(del);
 
-  // イベント登録（非スクリプト要素のみ）
   if (!hasCode) {
     div.addEventListener('mousedown', onElementMouseDown);
   }
   div.addEventListener('dblclick', onElementDblClick);
 
-  // ビジュアルスクリプト用クリックイベント
   if (hasAction || hasCode) {
     div.addEventListener('click', (e) => {
-      // トリガー実行（要素自体がクリックされたとき）
       if (e.target === div || e.target.classList.contains('script-frame')) {
         runElementAction(id, 'click');
       }
@@ -1550,12 +2005,7 @@ function startDragFromBar(e, id) {
   e.preventDefault();
   const el = elements[id];
   if (!el) return;
-
-  if (e.shiftKey || e.metaKey || e.ctrlKey) {
-    toggleSelection(id);
-    return;
-  }
-
+  if (e.shiftKey || e.metaKey || e.ctrlKey) { toggleSelection(id); return; }
   selectElement(id, true);
   isDragging = true;
   currentDragId = id;
@@ -1580,7 +2030,6 @@ function selectElement(id, exclusive = false) {
   if (dom) dom.classList.add('selected');
   showPropPanel();
 }
-
 function toggleSelection(id) {
   if (selectedIds.has(id)) {
     selectedIds.delete(id);
@@ -1593,7 +2042,6 @@ function toggleSelection(id) {
   }
   showPropPanel();
 }
-
 function clearSelection() {
   selectedIds.forEach(sid => {
     const d = elementRefs[sid];
@@ -1602,7 +2050,7 @@ function clearSelection() {
   selectedIds.clear();
 }
 
-// ============ ドラッグ（通常要素） ============
+// ============ ドラッグ ============
 function onElementMouseDown(e) {
   if (e.target.classList.contains('resize-handle')) return;
   if (e.target.classList.contains('delete-btn')) return;
@@ -1611,21 +2059,11 @@ function onElementMouseDown(e) {
   if (div.querySelector('[contenteditable="true"]') === document.activeElement) return;
 
   e.stopPropagation();
-
   const id = div.dataset.id;
   const el = elements[id];
   if (!el) return;
-
-  if (e.shiftKey || e.metaKey || e.ctrlKey) {
-    toggleSelection(id);
-    return;
-  }
-
-  // 既に選択済みの場合は、そのまま複数ドラッグ
-  if (!selectedIds.has(id)) {
-    selectElement(id, true);
-  }
-
+  if (e.shiftKey || e.metaKey || e.ctrlKey) { toggleSelection(id); return; }
+  if (!selectedIds.has(id)) selectElement(id, true);
   isDragging = true;
   currentDragId = id;
   const rect = canvas.getBoundingClientRect();
@@ -1633,16 +2071,16 @@ function onElementMouseDown(e) {
   dragOffset.y = (e.clientY - rect.top) - el.y;
 }
 
-// ============ マウス移動 ============
 canvas.addEventListener('mousemove', e => {
   if (!currentUser) return;
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
 
-  coordDisplay.textContent = `X: ${Math.round(x)}  Y: ${Math.round(y)}`;
+  if (settings.showCoordDisplay) {
+    coordDisplay.textContent = `X: ${Math.round(x)}  Y: ${Math.round(y)}`;
+  }
 
-  // カーソル同期
   if (myCursorRef) {
     const now = Date.now();
     if (!window._lastCursorUpdate || now - window._lastCursorUpdate > 50) {
@@ -1656,7 +2094,6 @@ canvas.addEventListener('mousemove', e => {
     }
   }
 
-  // ドラッグ選択
   if (isSelecting) {
     const x1 = Math.min(selectionStart.x, x);
     const y1 = Math.min(selectionStart.y, y);
@@ -1668,15 +2105,12 @@ canvas.addEventListener('mousemove', e => {
     selectionRect.style.height = (y2 - y1) + 'px';
   }
 
-  // 要素移動
   if (isDragging && currentDragId) {
     const dom = elementRefs[currentDragId];
     if (!dom) return;
     const el = elements[currentDragId];
     const dx = x - dragOffset.x - el.x;
     const dy = y - dragOffset.y - el.y;
-
-    // 複数選択中は全てを移動
     if (selectedIds.size > 1 && selectedIds.has(currentDragId)) {
       selectedIds.forEach(sid => {
         const sdom = elementRefs[sid];
@@ -1691,7 +2125,6 @@ canvas.addEventListener('mousemove', e => {
     }
   }
 
-  // リサイズ
   if (resizeState) {
     const { id, pos, startX, startY, origW, origH, origX, origY } = resizeState;
     const dom = elementRefs[id];
@@ -1714,24 +2147,16 @@ canvas.addEventListener('mousemove', e => {
 
 document.addEventListener('mouseup', (e) => {
   if (isSelecting) {
-    // 選択範囲内の要素を選択
     const rect = canvas.getBoundingClientRect();
     const x1 = Math.min(selectionStart.x, e.clientX - rect.left);
     const y1 = Math.min(selectionStart.y, e.clientY - rect.top);
     const x2 = Math.max(selectionStart.x, e.clientX - rect.left);
     const y2 = Math.max(selectionStart.y, e.clientY - rect.top);
-
     if (Math.abs(x2 - x1) > 5 && Math.abs(y2 - y1) > 5) {
-      // 新規選択（Ctrlなしの場合はクリア）
       if (!e.shiftKey && !e.metaKey && !e.ctrlKey) clearSelection();
-
       Object.entries(elements).forEach(([id, el]) => {
         const size = getElementSize(el);
-        const ex1 = el.x;
-        const ey1 = el.y;
-        const ex2 = el.x + size.w;
-        const ey2 = el.y + size.h;
-        // 矩形が交差しているか
+        const ex1 = el.x, ey1 = el.y, ex2 = el.x + size.w, ey2 = el.y + size.h;
         if (!(ex2 < x1 || ex1 > x2 || ey2 < y1 || ey1 > y2)) {
           selectedIds.add(id);
           const dom = elementRefs[id];
@@ -1744,9 +2169,7 @@ document.addEventListener('mouseup', (e) => {
     canvas.classList.remove('selecting');
     selectionRect.classList.remove('show');
   }
-
   if (isDragging && currentDragId) {
-    // 複数選択の場合は全て更新
     const toUpdate = (selectedIds.size > 1 && selectedIds.has(currentDragId))
       ? Array.from(selectedIds) : [currentDragId];
     toUpdate.forEach(sid => {
@@ -1760,7 +2183,6 @@ document.addEventListener('mouseup', (e) => {
       }
     });
   }
-
   if (resizeState) {
     const { id, newW, newH, newX, newY } = resizeState;
     if (newW && newH) {
@@ -1772,26 +2194,36 @@ document.addEventListener('mouseup', (e) => {
       }).catch(()=>{});
     }
   }
-
   isDragging = false;
   currentDragId = null;
   resizeState = null;
 });
 
-// キャンバス上のドラッグ開始（何もないところ）
 canvas.addEventListener('mousedown', (e) => {
   if (e.target === canvas || e.target.id === 'selectionRect') {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    if (e.shiftKey || e.metaKey || e.ctrlKey) {
-      // 追加選択モード
-    } else {
+    // 座標トースト (設定でON/OFF)
+    if (settings.showCoordToast) {
+      const rx = Math.round(x), ry = Math.round(y);
+      coordToast.textContent = `📍 X: ${rx}, Y: ${ry}`;
+      coordToast.style.left = e.clientX + 'px';
+      coordToast.style.top = e.clientY + 'px';
+      coordToast.classList.add('show');
+      clearTimeout(window._coordToastTimer);
+      window._coordToastTimer = setTimeout(() => coordToast.classList.remove('show'), 1200);
+    }
+    // 座標ログ (設定でON/OFF)
+    if (settings.logCoord) {
+      addLog('coord', `🖱 クリック座標: (${Math.round(x)}, ${Math.round(y)})`);
+    }
+
+    if (!e.shiftKey && !e.metaKey && !e.ctrlKey) {
       clearSelection();
       propPanel.classList.remove('show');
     }
-
     isSelecting = true;
     selectionStart = { x, y };
     selectionRect.style.left = x + 'px';
@@ -1801,22 +2233,6 @@ canvas.addEventListener('mousedown', (e) => {
     selectionRect.classList.add('show');
     canvas.classList.add('selecting');
     hideSlashMenu();
-  }
-});
-
-// クリック（座標表示）
-canvas.addEventListener('mousedown', (e) => {
-  if (e.target === canvas) {
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.round(e.clientX - rect.left);
-    const y = Math.round(e.clientY - rect.top);
-    coordToast.textContent = `📍 X: ${x}, Y: ${y}`;
-    coordToast.style.left = e.clientX + 'px';
-    coordToast.style.top = e.clientY + 'px';
-    coordToast.classList.add('show');
-    clearTimeout(window._coordToastTimer);
-    window._coordToastTimer = setTimeout(() => coordToast.classList.remove('show'), 1200);
-    addLog('coord', `🖱 クリック座標: (${x}, ${y})`);
   }
 });
 
@@ -1837,30 +2253,22 @@ function startResize(e, id, pos) {
   };
 }
 
-// ============ ダブルクリック ============
 function onElementDblClick(e) {
   const div = e.currentTarget;
   const id = div.dataset.id;
   const el = elements[id];
   if (!el) return;
-
-  if (div.classList.contains('has-script')) {
-    openCodeEditor(id);
-    return;
-  }
+  if (div.classList.contains('has-script')) { openCodeEditor(id); return; }
   if (!['sticky','text','comment'].includes(el.type)) return;
   if (div.contentEditable === 'true') return;
-
   e.stopPropagation();
   div.contentEditable = 'true';
   div.focus();
-
   const range = document.createRange();
   range.selectNodeContents(div);
   const sel = window.getSelection();
   sel.removeAllRanges();
   sel.addRange(range);
-
   const finish = () => {
     div.contentEditable = 'false';
     div.removeEventListener('blur', finish);
@@ -1869,23 +2277,18 @@ function onElementDblClick(e) {
   };
   const onKey = (ev) => {
     if (ev.key === 'Escape') { ev.preventDefault(); div.blur(); }
-    if (ev.key === 'Enter' && !ev.shiftKey && el.type !== 'sticky') {
-      ev.preventDefault(); div.blur();
-    }
+    if (ev.key === 'Enter' && !ev.shiftKey && el.type !== 'sticky') { ev.preventDefault(); div.blur(); }
   };
   div.addEventListener('blur', finish);
   div.addEventListener('keydown', onKey);
 }
 
-// ============ グループ表示 ============
+// ============ グループ ============
 function refreshAllGroupIndicators() {
-  // 既存をクリア
   Object.values(groupIndicators).forEach(d => d.remove());
   groupIndicators = {};
-
   Object.entries(groups).forEach(([gid, g]) => {
     if (!g.members || g.members.length === 0) return;
-    // メンバーのバウンディングボックス計算
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     let validCount = 0;
     g.members.forEach(mid => {
@@ -1899,7 +2302,6 @@ function refreshAllGroupIndicators() {
       validCount++;
     });
     if (validCount === 0) return;
-
     const pad = 8;
     const ind = document.createElement('div');
     ind.className = 'group-indicator';
@@ -1915,29 +2317,17 @@ function refreshAllGroupIndicators() {
 }
 
 // ============ プロパティパネル ============
-function updatePropPanelIfNeeded() {
-  if (selectedIds.size > 0) showPropPanel();
-}
+function updatePropPanelIfNeeded() { if (selectedIds.size > 0) showPropPanel(); }
 
 function showPropPanel() {
-  if (selectedIds.size === 0) {
-    propPanel.classList.remove('show');
-    return;
-  }
+  if (selectedIds.size === 0) { propPanel.classList.remove('show'); return; }
   propPanel.classList.add('show');
   propPanel.innerHTML = '';
+  if (selectedIds.size > 1) { showMultiSelectPanel(); return; }
 
-  // 複数選択中
-  if (selectedIds.size > 1) {
-    showMultiSelectPanel();
-    return;
-  }
-
-  // 単一選択
   const id = Array.from(selectedIds)[0];
   const el = elements[id];
   if (!el) { propPanel.classList.remove('show'); return; }
-
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
   const hasAction = el.action && el.action.action;
   const isTextType = ['sticky','text','comment'].includes(el.type);
@@ -1945,7 +2335,6 @@ function showPropPanel() {
   const isSticky = el.type === 'sticky';
   const isStamp = el.type === 'stamp';
 
-  // 名前
   const gName = document.createElement('div');
   gName.className = 'pp-group';
   gName.innerHTML = `<label>名前</label>`;
@@ -1962,7 +2351,6 @@ function showPropPanel() {
   gName.appendChild(nameInput);
   propPanel.appendChild(gName);
 
-  // 位置
   const gPos = document.createElement('div');
   gPos.className = 'pp-group';
   const posInfo = document.createElement('div');
@@ -1977,18 +2365,15 @@ function showPropPanel() {
   }
   propPanel.appendChild(gPos);
 
-  // ビジュアルスクリプト
   const gAction = document.createElement('div');
   gAction.className = 'pp-group';
   const actBtn = document.createElement('button');
   actBtn.className = 'action-btn' + (hasAction ? ' has-action' : '');
   actBtn.textContent = hasAction ? '🎯 動作編集' : '🎯 動作設定';
-  actBtn.title = 'ビジュアルスクリプト';
   actBtn.addEventListener('click', () => openVisualScript(id));
   gAction.appendChild(actBtn);
   propPanel.appendChild(gAction);
 
-  // コード
   const gScript = document.createElement('div');
   gScript.className = 'pp-group';
   const codeBtn = document.createElement('button');
@@ -1998,18 +2383,6 @@ function showPropPanel() {
   gScript.appendChild(codeBtn);
   propPanel.appendChild(gScript);
 
-  // グループ化
-  const gGroup = document.createElement('div');
-  gGroup.className = 'pp-group';
-  const groupBtn = document.createElement('button');
-  groupBtn.textContent = '📦 グループ化';
-  groupBtn.className = 'group-btn';
-  groupBtn.disabled = true;
-  groupBtn.style.opacity = '0.5';
-  gGroup.appendChild(groupBtn);
-  propPanel.appendChild(gGroup);
-
-  // 色
   if (!hasCode && (isTextType || isShapeType || isSticky)) {
     const g = document.createElement('div');
     g.className = 'pp-group';
@@ -2024,7 +2397,6 @@ function showPropPanel() {
     propPanel.appendChild(g);
   }
 
-  // 文字サイズ
   if (!hasCode && (isTextType || isStamp)) {
     const g = document.createElement('div');
     g.className = 'pp-group';
@@ -2040,7 +2412,6 @@ function showPropPanel() {
     propPanel.appendChild(g);
   }
 
-  // 太字・斜体
   if (!hasCode && isTextType) {
     const g = document.createElement('div');
     g.className = 'pp-group';
@@ -2048,59 +2419,45 @@ function showPropPanel() {
     boldBtn.textContent = 'B';
     boldBtn.style.fontWeight = 'bold';
     if (el.bold) boldBtn.classList.add('active');
-    boldBtn.addEventListener('click', () => {
-      update(ref(db, `rooms/${roomId}/elements/${id}`), { bold: !el.bold });
-    });
+    boldBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { bold: !el.bold }));
     const italicBtn = document.createElement('button');
     italicBtn.textContent = 'I';
     italicBtn.style.fontStyle = 'italic';
     if (el.italic) italicBtn.classList.add('active');
-    italicBtn.addEventListener('click', () => {
-      update(ref(db, `rooms/${roomId}/elements/${id}`), { italic: !el.italic });
-    });
+    italicBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { italic: !el.italic }));
     g.appendChild(boldBtn);
     g.appendChild(italicBtn);
     propPanel.appendChild(g);
   }
 
-  // 表示/非表示
   const gVis = document.createElement('div');
   gVis.className = 'pp-group';
   const visBtn = document.createElement('button');
   visBtn.textContent = el.visible === false ? '👁 表示' : '👁 隠す';
-  visBtn.title = '表示/非表示';
-  visBtn.addEventListener('click', () => {
-    update(ref(db, `rooms/${roomId}/elements/${id}`), { visible: el.visible === false ? true : false });
-  });
+  visBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { visible: el.visible === false ? true : false }));
   gVis.appendChild(visBtn);
-
   const opBtn = document.createElement('button');
   opBtn.textContent = el.opacity < 1 ? '🔆 不透明' : '💧 半透明';
-  opBtn.title = '透明度';
-  opBtn.addEventListener('click', () => {
-    update(ref(db, `rooms/${roomId}/elements/${id}`), { opacity: el.opacity < 1 ? 1 : 0.3 });
-  });
+  opBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { opacity: el.opacity < 1 ? 1 : 0.3 }));
   gVis.appendChild(opBtn);
   propPanel.appendChild(gVis);
 
-  // レイヤー
   const gLayer = document.createElement('div');
   gLayer.className = 'pp-group';
   const upBtn = document.createElement('button');
-  upBtn.textContent = '⬆'; upBtn.title = '前面へ';
+  upBtn.textContent = '⬆';
   upBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { z: Date.now() }));
   const downBtn = document.createElement('button');
-  downBtn.textContent = '⬇'; downBtn.title = '背面へ';
+  downBtn.textContent = '⬇';
   downBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { z: 1 }));
   gLayer.appendChild(upBtn);
   gLayer.appendChild(downBtn);
   propPanel.appendChild(gLayer);
 
-  // 複製
   const gDup = document.createElement('div');
   gDup.className = 'pp-group';
   const dupBtn = document.createElement('button');
-  dupBtn.textContent = '⧉'; dupBtn.title = '複製';
+  dupBtn.textContent = '⧉';
   dupBtn.addEventListener('click', async () => {
     const newId = newElemId();
     const copy = JSON.parse(JSON.stringify(el));
@@ -2113,11 +2470,8 @@ function showPropPanel() {
   propPanel.appendChild(gDup);
 }
 
-// 複数選択パネル
 function showMultiSelectPanel() {
   const ids = Array.from(selectedIds);
-
-  // 選択数
   const gInfo = document.createElement('div');
   gInfo.className = 'pp-group';
   const info = document.createElement('div');
@@ -2126,7 +2480,6 @@ function showMultiSelectPanel() {
   gInfo.appendChild(info);
   propPanel.appendChild(gInfo);
 
-  // グループ化
   const gGroup = document.createElement('div');
   gGroup.className = 'pp-group';
   const groupBtn = document.createElement('button');
@@ -2135,7 +2488,6 @@ function showMultiSelectPanel() {
   groupBtn.addEventListener('click', () => openGroupModal(ids));
   gGroup.appendChild(groupBtn);
 
-  // 一括削除
   const delBtn = document.createElement('button');
   delBtn.textContent = '🗑 一括削除';
   delBtn.style.background = '#c0392b';
@@ -2143,41 +2495,21 @@ function showMultiSelectPanel() {
   delBtn.style.borderColor = '#c0392b';
   delBtn.addEventListener('click', async () => {
     if (!confirm(`${ids.length}個を削除しますか？`)) return;
-    for (const id of ids) {
-      await remove(ref(db, `rooms/${roomId}/elements/${id}`));
-    }
+    for (const id of ids) await remove(ref(db, `rooms/${roomId}/elements/${id}`));
     clearSelection();
   });
   gGroup.appendChild(delBtn);
   propPanel.appendChild(gGroup);
 
-  // 整列
   const gAlign = document.createElement('div');
   gAlign.className = 'pp-group';
-  const alignLeft = document.createElement('button');
-  alignLeft.textContent = '⇤'; alignLeft.title = '左揃え';
-  alignLeft.addEventListener('click', () => alignElements('left'));
-  const alignCenterH = document.createElement('button');
-  alignCenterH.textContent = '↔'; alignCenterH.title = '中央揃え（横）';
-  alignCenterH.addEventListener('click', () => alignElements('center-h'));
-  const alignRight = document.createElement('button');
-  alignRight.textContent = '⇥'; alignRight.title = '右揃え';
-  alignRight.addEventListener('click', () => alignElements('right'));
-  const alignTop = document.createElement('button');
-  alignTop.textContent = '⇡'; alignTop.title = '上揃え';
-  alignTop.addEventListener('click', () => alignElements('top'));
-  const alignCenterV = document.createElement('button');
-  alignCenterV.textContent = '↕'; alignCenterV.title = '中央揃え（縦）';
-  alignCenterV.addEventListener('click', () => alignElements('center-v'));
-  const alignBottom = document.createElement('button');
-  alignBottom.textContent = '⇣'; alignBottom.title = '下揃え';
-  alignBottom.addEventListener('click', () => alignElements('bottom'));
-  gAlign.appendChild(alignLeft);
-  gAlign.appendChild(alignCenterH);
-  gAlign.appendChild(alignRight);
-  gAlign.appendChild(alignTop);
-  gAlign.appendChild(alignCenterV);
-  gAlign.appendChild(alignBottom);
+  [['left','⇤','左揃え'],['center-h','↔','中央横'],['right','⇥','右揃え'],['top','⇡','上揃え'],['center-v','↕','中央縦'],['bottom','⇣','下揃え']].forEach(([m, icon, t]) => {
+    const btn = document.createElement('button');
+    btn.textContent = icon;
+    btn.title = t;
+    btn.addEventListener('click', () => alignElements(m));
+    gAlign.appendChild(btn);
+  });
   propPanel.appendChild(gAlign);
 }
 
@@ -2185,8 +2517,6 @@ async function alignElements(mode) {
   const ids = Array.from(selectedIds);
   const els = ids.map(id => elements[id]).filter(Boolean);
   if (els.length < 2) return;
-
-  // バウンディングボックス
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   els.forEach(el => {
     const size = getElementSize(el);
@@ -2195,7 +2525,6 @@ async function alignElements(mode) {
     maxX = Math.max(maxX, el.x + size.w);
     maxY = Math.max(maxY, el.y + size.h);
   });
-
   for (const id of ids) {
     const el = elements[id];
     if (!el) continue;
@@ -2208,11 +2537,9 @@ async function alignElements(mode) {
     if (mode === 'bottom') newY = maxY - size.h;
     if (mode === 'center-v') newY = (minY + maxY) / 2 - size.h / 2;
     await update(ref(db, `rooms/${roomId}/elements/${id}`), {
-      x: Math.round(newX),
-      y: Math.round(newY)
+      x: Math.round(newX), y: Math.round(newY)
     });
   }
-  addLog('event', `📐 整列: ${mode}`);
 }
 
 function rgbToHex(color) {
@@ -2249,23 +2576,16 @@ document.getElementById('gmSave').addEventListener('click', async () => {
   const name = document.getElementById('gmName').value.trim() || 'グループ';
   const ids = Array.from(selectedIds);
   if (ids.length < 2) return;
-
   const gid = newGroupId();
-  // 各要素にグループIDを付与
-  for (const id of ids) {
-    await update(ref(db, `rooms/${roomId}/elements/${id}`), { groupId: gid });
-  }
-  // グループ情報を保存
+  for (const id of ids) await update(ref(db, `rooms/${roomId}/elements/${id}`), { groupId: gid });
   await set(ref(db, `rooms/${roomId}/groups/${gid}`), {
-    name,
-    members: ids,
+    name, members: ids,
     author: currentUser.displayName || currentUser.email,
     createdAt: Date.now()
   });
-
   groupModal.classList.remove('show');
-  addLog('event', `📦 グループ「${name}」を作成（${ids.length}個）`);
-  showHint(`📦 グループ「${name}」を作成`);
+  if (settings.logEvent) addLog('event', `📦 グループ「${name}」を作成（${ids.length}個）`);
+  showHint(`📦 グループ「${name}」`);
   clearSelection();
   propPanel.classList.remove('show');
 });
@@ -2276,8 +2596,6 @@ function openVisualScript(id) {
   const el = elements[id];
   if (!el) return;
   editingActionData = el.action ? { ...el.action } : { trigger: 'click', action: 'show', target: '' };
-
-  // ターゲット選択肢を構築
   const targetSelect = document.getElementById('vsTarget');
   targetSelect.innerHTML = '<option value="">（対象なし／自分自身）</option>';
   Object.entries(elements).forEach(([eid, e]) => {
@@ -2288,14 +2606,12 @@ function openVisualScript(id) {
     opt.textContent = '📍 ' + label;
     targetSelect.appendChild(opt);
   });
-  // グループも追加
   Object.entries(groups).forEach(([gid, g]) => {
     const opt = document.createElement('option');
     opt.value = 'group:' + gid;
     opt.textContent = `📦 ${g.name} (グループ)`;
     targetSelect.appendChild(opt);
   });
-
   document.getElementById('vsTrigger').value = editingActionData.trigger || 'click';
   document.getElementById('vsAction').value = editingActionData.action || 'show';
   document.getElementById('vsTarget').value = editingActionData.target || '';
@@ -2303,10 +2619,7 @@ function openVisualScript(id) {
   document.getElementById('vsY').value = editingActionData.y ?? Math.round(el.y + 50);
   document.getElementById('vsColor').value = editingActionData.color || '#0d99ff';
   document.getElementById('vsText').value = editingActionData.text || '';
-
-  updateVisualRows();
-  updateVisualPreview();
-
+  updateVisualRows(); updateVisualPreview();
   visualModal.classList.add('show');
 }
 
@@ -2323,27 +2636,16 @@ function updateVisualPreview() {
   const action = document.getElementById('vsAction').value;
   const target = document.getElementById('vsTarget');
   const targetLabel = target.options[target.selectedIndex]?.textContent || '（対象なし）';
-
   const triggerText = { click: 'クリック時', hover: 'マウスオーバー時', longpress: '長押し時' }[trigger];
   const actionText = {
-    show: '対象を表示',
-    hide: '対象を隠す',
-    toggle: '対象の表示/非表示を切替',
-    appear: 'フェードイン（透明→不透明）',
-    disappear: 'フェードアウト（不透明→透明）',
-    move: '対象を移動',
-    color: '対象の色を変更',
-    notify: 'メッセージを表示'
+    show: '対象を表示', hide: '対象を隠す', toggle: '表示/非表示を切替',
+    appear: 'フェードイン', disappear: 'フェードアウト',
+    move: '対象を移動', color: '色を変更', notify: 'メッセージ表示'
   }[action];
-
   let preview = `🎯 ${triggerText} → ${actionText}`;
-  if (action === 'notify') {
-    preview += `: "${document.getElementById('vsText').value}"`;
-  } else if (action === 'move') {
-    preview += ` (${document.getElementById('vsX').value}, ${document.getElementById('vsY').value})`;
-  } else if (action !== 'notify') {
-    preview += ` → ${targetLabel}`;
-  }
+  if (action === 'notify') preview += `: "${document.getElementById('vsText').value}"`;
+  else if (action === 'move') preview += ` (${document.getElementById('vsX').value}, ${document.getElementById('vsY').value})`;
+  else preview += ` → ${targetLabel}`;
   document.getElementById('vsPreview').textContent = preview;
 }
 
@@ -2368,8 +2670,7 @@ document.getElementById('vsSave').addEventListener('click', async () => {
   };
   await update(ref(db, `rooms/${roomId}/elements/${editingActionId}`), { action });
   visualModal.classList.remove('show');
-  showHint('🎯 動作を保存しました');
-  addLog('event', `🎯 動作設定: ${action.trigger} → ${action.action}`);
+  showHint('🎯 動作を保存');
 });
 
 document.getElementById('vsRemove').addEventListener('click', async () => {
@@ -2377,25 +2678,17 @@ document.getElementById('vsRemove').addEventListener('click', async () => {
   if (!confirm('動作設定を削除しますか？')) return;
   await remove(ref(db, `rooms/${roomId}/elements/${editingActionId}/action`));
   visualModal.classList.remove('show');
-  showHint('動作設定を削除');
 });
 
-// ============ アクション実行 ============
 async function runElementAction(id, triggerType) {
   const el = elements[id];
   if (!el || !el.action) return;
   if (el.action.trigger !== triggerType) return;
-
   const a = el.action;
-  addLog('event', `🎯 実行: ${triggerType} → ${a.action}`);
-
   if (a.action === 'notify') {
     showHint('📢 ' + (a.text || 'メッセージ'));
-    addLog('event', `📢 ${a.text}`);
     return;
   }
-
-  // ターゲット解決
   let targetIds = [];
   if (a.target && a.target.startsWith('group:')) {
     const gid = a.target.slice(6);
@@ -2404,35 +2697,17 @@ async function runElementAction(id, triggerType) {
   } else if (a.target) {
     targetIds = [a.target];
   }
-
-  if (targetIds.length === 0) return;
-
   for (const tid of targetIds) {
     const target = elements[tid];
     if (!target) continue;
-
     switch (a.action) {
-      case 'show':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 });
-        break;
-      case 'hide':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: false });
-        break;
-      case 'toggle':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: target.visible === false ? true : false });
-        break;
-      case 'appear':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 });
-        break;
-      case 'disappear':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { opacity: 0.05 });
-        break;
-      case 'move':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { x: a.x, y: a.y });
-        break;
-      case 'color':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { color: a.color });
-        break;
+      case 'show': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 }); break;
+      case 'hide': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: false }); break;
+      case 'toggle': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: target.visible === false ? true : false }); break;
+      case 'appear': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 }); break;
+      case 'disappear': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { opacity: 0.05 }); break;
+      case 'move': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { x: a.x, y: a.y }); break;
+      case 'color': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { color: a.color }); break;
     }
   }
 }
@@ -2448,9 +2723,7 @@ function openCodeEditor(id) {
     js:   (el.code && el.code.js)   || ''
   };
   currentCodeTab = 'html';
-  document.querySelectorAll('#codeModal .tabs button').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab === 'html');
-  });
+  document.querySelectorAll('#codeModal .tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === 'html'));
   codeTextarea.value = editingCodeData.html;
   codeModal.classList.add('show');
   codeTextarea.focus();
@@ -2460,9 +2733,7 @@ document.querySelectorAll('#codeModal .tabs button').forEach(btn => {
   btn.addEventListener('click', () => {
     editingCodeData[currentCodeTab] = codeTextarea.value;
     currentCodeTab = btn.dataset.tab;
-    document.querySelectorAll('#codeModal .tabs button').forEach(b => {
-      b.classList.toggle('active', b === btn);
-    });
+    document.querySelectorAll('#codeModal .tabs button').forEach(b => b.classList.toggle('active', b === btn));
     codeTextarea.value = editingCodeData[currentCodeTab] || '';
   });
 });
@@ -2479,7 +2750,7 @@ document.getElementById('codeSave').addEventListener('click', async () => {
     height: elements[editingCodeId].height || 160
   });
   closeCodeEditor();
-  showHint('⚡ スクリプトを保存しました');
+  showHint('⚡ スクリプトを保存');
 });
 
 document.getElementById('codeRemove').addEventListener('click', async () => {
@@ -2487,7 +2758,6 @@ document.getElementById('codeRemove').addEventListener('click', async () => {
   if (!confirm('スクリプトを削除しますか？')) return;
   await remove(ref(db, `rooms/${roomId}/elements/${editingCodeId}/code`));
   closeCodeEditor();
-  showHint('スクリプトを削除');
 });
 
 function closeCodeEditor() {
@@ -2503,9 +2773,7 @@ document.querySelectorAll('.code-foot .examples button').forEach(btn => {
     if (!tpl) return;
     editingCodeData = JSON.parse(JSON.stringify(tpl));
     currentCodeTab = 'html';
-    document.querySelectorAll('#codeModal .tabs button').forEach(b => {
-      b.classList.toggle('active', b.dataset.tab === 'html');
-    });
+    document.querySelectorAll('#codeModal .tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === 'html'));
     codeTextarea.value = editingCodeData.html;
   });
 });
@@ -2517,15 +2785,12 @@ async function addElement(type, opts = {}) {
   const cy = canvas.clientHeight / 2 - 80 + (Math.random() - 0.5) * 200;
   const x = opts.x ?? cx;
   const y = opts.y ?? cy;
-
   const base = {
     type, x: Math.round(x), y: Math.round(y),
     author: currentUser.displayName || currentUser.email
   };
-
   let payload;
   let autoName = '';
-
   switch (type) {
     case 'sticky':
       autoName = prompt('名前（任意・空でOK）:', '');
@@ -2572,33 +2837,42 @@ async function addElement(type, opts = {}) {
     case 'button': {
       autoName = prompt('名前（任意・空でOK）:', 'ボタン');
       payload = {
-        ...base,
-        type: 'rect',
-        color: '#0d99ff',
-        width: 240,
-        height: 160,
+        ...base, type: 'rect', color: '#0d99ff',
+        width: 240, height: 160,
         code: JSON.parse(JSON.stringify(CODE_TEMPLATES.button))
       };
       break;
     }
-    default:
-      return;
+    default: return;
   }
-
   if (autoName && autoName.trim()) payload.name = autoName.trim();
-
   const newRef = push(ref(db, `rooms/${roomId}/elements`));
   await set(newRef, payload);
-
   const label = payload.name || TYPE_LABEL[payload.type] || payload.type;
-  addLog('event', `✨ 「${label}」を (${payload.x}, ${payload.y}) に追加`);
+  if (settings.logEvent) addLog('event', `✨ 「${label}」を (${payload.x}, ${payload.y}) に追加`);
   showHint(`✨ ${label} を追加`);
+  if (settings.sfx) playBeep();
+}
+
+// ============ 効果音 ============
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 800;
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.1);
+  } catch(e) {}
 }
 
 // ============ スラッシュメニュー ============
 let slashActiveIndex = 0;
 let slashFiltered = COMMANDS.slice();
-
 function showSlashMenu(x, y) {
   slashActiveIndex = 0;
   slashFiltered = COMMANDS.slice();
@@ -2608,7 +2882,6 @@ function showSlashMenu(x, y) {
   slashMenu.classList.add('show');
 }
 function hideSlashMenu() { slashMenu.classList.remove('show'); }
-
 function renderSlashMenu() {
   if (slashFiltered.length === 0) {
     slashMenu.innerHTML = '<div style="padding:16px;color:#999;font-size:13px;">該当なし</div>';
@@ -2681,10 +2954,6 @@ window.addEventListener('message', (e) => {
   if (d.__script) {
     if (d.type === 'ready') return;
     addLog(d.type, d.msg);
-    if (d.type === 'log' || d.type === 'error' || d.type === 'warn') {
-      const el = elements[d.elementId];
-      if (el) addLog('event', `⚡ 「${el.name || el.type}」から: ${d.msg}`);
-    }
   } else if (d.type === 'notify') {
     showHint('⚡ ' + d.text);
     addLog('event', '⚡ ' + d.text);
@@ -2695,11 +2964,13 @@ function addLog(type, msg) {
   scriptLogLines.push({ type, msg, time: Date.now() });
   if (scriptLogLines.length > 100) scriptLogLines.shift();
   renderLogs();
-  scriptLog.classList.add('show');
-  clearTimeout(window._logHideTimer);
-  window._logHideTimer = setTimeout(() => {
-    if (!scriptLog.matches(':hover')) scriptLog.classList.remove('show');
-  }, 5000);
+  if (settings.logAutoShow) {
+    scriptLog.classList.add('show');
+    clearTimeout(window._logHideTimer);
+    window._logHideTimer = setTimeout(() => {
+      if (!scriptLog.matches(':hover')) scriptLog.classList.remove('show');
+    }, 5000);
+  }
 }
 
 function renderLogs() {
@@ -2723,12 +2994,14 @@ document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase();
   const inEditable = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
 
+  if (settingsModal.classList.contains('show')) {
+    if (e.key === 'Escape') { e.preventDefault(); settingsModal.classList.remove('show'); }
+    return;
+  }
   if (codeModal.classList.contains('show')) {
     if (e.key === 'Escape') { e.preventDefault(); closeCodeEditor(); return; }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 's')) {
-      e.preventDefault();
-      document.getElementById('codeSave').click();
-      return;
+      e.preventDefault(); document.getElementById('codeSave').click(); return;
     }
     return;
   }
@@ -2740,7 +3013,6 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { e.preventDefault(); groupModal.classList.remove('show'); }
     return;
   }
-
   if (slashMenu.classList.contains('show')) {
     if (e.key === 'Escape') { e.preventDefault(); hideSlashMenu(); return; }
     if (e.key === 'ArrowDown') {
@@ -2759,27 +3031,21 @@ document.addEventListener('keydown', (e) => {
       return;
     }
   }
-
   if (inEditable) return;
-
   if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) {
     e.preventDefault();
     const ids = Array.from(selectedIds);
-    if (!confirm(ids.length > 1 ? `${ids.length}個を削除しますか？` : '削除しますか？')) return;
+    if (!confirm(ids.length > 1 ? `${ids.length}個を削除？` : '削除しますか？')) return;
     ids.forEach(id => remove(ref(db, `rooms/${roomId}/elements/${id}`)));
     clearSelection();
     propPanel.classList.remove('show');
     return;
   }
-
-  // Ctrl+G でグループ化
   if ((e.ctrlKey || e.metaKey) && e.key === 'g' && selectedIds.size >= 2) {
     e.preventDefault();
     openGroupModal(Array.from(selectedIds));
     return;
   }
-
-  // Ctrl+A 全選択
   if ((e.ctrlKey || e.metaKey) && e.key === 'a' && !inEditable) {
     e.preventDefault();
     clearSelection();
@@ -2791,11 +3057,7 @@ document.addEventListener('keydown', (e) => {
     if (selectedIds.size > 0) showPropPanel();
     return;
   }
-
-  if (e.key === 'c' || e.key === 'C') {
-    e.preventDefault();
-    toggleChat();
-  }
+  if (e.key === 'c' || e.key === 'C') { e.preventDefault(); toggleChat(); }
   if (e.key === ' ' && !e.repeat && !myBubble.classList.contains('show')) {
     e.preventDefault();
     openMyBubble();
@@ -2807,7 +3069,8 @@ document.addEventListener('keydown', (e) => {
       e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' &&
       !codeModal.classList.contains('show') &&
       !visualModal.classList.contains('show') &&
-      !groupModal.classList.contains('show')) {
+      !groupModal.classList.contains('show') &&
+      !settingsModal.classList.contains('show')) {
     e.preventDefault();
     showSlashMenu(window.innerWidth / 2 - 140, window.innerHeight / 2 - 150);
   }
@@ -2868,10 +3131,9 @@ document.addEventListener('mousemove', (e) => {
 // ============ 画像ペースト ============
 document.addEventListener('paste', async (e) => {
   if (!roomId || !currentUser) return;
-  if (codeModal.classList.contains('show') || visualModal.classList.contains('show')) return;
+  if (codeModal.classList.contains('show') || visualModal.classList.contains('show') || settingsModal.classList.contains('show')) return;
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
-
   const items = e.clipboardData?.items || [];
   for (const item of items) {
     if (item.type.startsWith('image/')) {
@@ -2887,9 +3149,7 @@ document.addEventListener('paste', async (e) => {
           await pasteImage(dataUrl);
         }
         showPasteHint('📋 画像を貼り付けました');
-      } catch (err) {
-        showPasteHint('❌ 画像の貼り付けに失敗');
-      }
+      } catch (err) { showPasteHint('❌ 貼り付け失敗'); }
       return;
     }
   }
@@ -2932,7 +3192,7 @@ async function pasteImage(dataUrl) {
   };
   if (name && name.trim()) payload.name = name.trim();
   await set(ref(db, `rooms/${roomId}/elements/${newId}`), payload);
-  addLog('event', `🖼 画像を (${payload.x}, ${payload.y}) に追加`);
+  if (settings.logEvent) addLog('event', `🖼 画像を (${payload.x}, ${payload.y}) に追加`);
 }
 
 // ============ ユーザー ============
@@ -3082,8 +3342,10 @@ function renderAdminPanel() {
   });
 }
 
+// ============ 初期化 ============
+applySettings();
 console.log('%c🎨 FigmaDG', 'color:#0d99ff;font-size:20px;font-weight:bold');
-console.log('ドラッグで複数選択 | Ctrl+G グループ化 | Ctrl+A 全選択 | / コマンド | Space 吹き出し');
+console.log('⚙️ 設定からBGM・ログ・表示などをカスタマイズできます');
 </script>
 </body>
 </html>
