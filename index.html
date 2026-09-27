@@ -60,6 +60,25 @@
   #toolbar .sep {
     border-left: 1px solid #555; height: 20px; margin: 0 4px;
   }
+  #toolbar .tool-group {
+    display: flex; gap: 2px;
+    background: #232323;
+    padding: 2px;
+    border-radius: 5px;
+    border: 1px solid #3a3a3a;
+  }
+  #toolbar .tool-group button {
+    border: none;
+    background: transparent;
+    padding: 5px 10px;
+    border-radius: 3px;
+  }
+  #toolbar .tool-group button.active {
+    background: #0d99ff;
+  }
+  #toolbar .tool-group button:hover:not(.active) {
+    background: #3a3a3a;
+  }
 
   #main { flex: 1; display: flex; overflow: hidden; position: relative; }
 
@@ -70,11 +89,13 @@
     background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
     background-size: 24px 24px;
     cursor: default; user-select: none;
+    touch-action: none;
   }
-  #canvas.no-grid {
-    background-image: none;
-  }
-  #canvas.selecting { cursor: crosshair; }
+  #canvas.no-grid { background-image: none; }
+  #canvas.mode-select { cursor: default; }
+  #canvas.mode-pen { cursor: crosshair; }
+  #canvas.mode-select.selecting { cursor: crosshair; }
+
   #canvas .selection-rect {
     position: absolute;
     border: 2px solid #0d99ff;
@@ -85,16 +106,41 @@
   }
   #canvas .selection-rect.show { display: block; }
 
+  /* 描画SVG */
+  #drawLayer {
+    position: absolute; inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+  #drawLayer path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   /* ===== 要素 ===== */
   .element {
     position: absolute; user-select: none;
     transition: box-shadow 0.15s;
   }
-  .element:hover:not(.has-script) {
+  .element:hover:not(.has-script):not(.locked) {
     box-shadow: 0 0 0 2px rgba(13,153,255,0.3);
   }
   .element.selected {
     box-shadow: 0 0 0 3px #0d99ff, 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .element.locked::after {
+    content: '🔒';
+    position: absolute;
+    top: -10px; right: -10px;
+    background: #f39c12; color: white;
+    border-radius: 50%;
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    border: 2px solid white;
+    z-index: 20;
+    pointer-events: none;
   }
   .element.hidden-element { display: none !important; }
   .element.faded { opacity: 0.2 !important; }
@@ -112,12 +158,10 @@
     border-radius: 4px;
     transition: border-color 0.15s;
   }
-  .element.has-script:hover .click-outline {
-    border-color: rgba(13,153,255,0.5);
-  }
-  .element.has-script.selected .click-outline {
-    border-color: #0d99ff;
-  }
+  .element.has-script:hover .click-outline { border-color: rgba(13,153,255,0.5); }
+  .element.has-script.selected .click-outline { border-color: #0d99ff; }
+  .element.has-script.locked .click-outline { cursor: default; }
+
   .element.has-script .drag-bar {
     position: absolute;
     top: -24px; left: 0; right: 0;
@@ -135,9 +179,9 @@
     pointer-events: auto;
   }
   .element.has-script:hover .drag-bar,
-  .element.has-script.selected .drag-bar {
-    opacity: 1;
-  }
+  .element.has-script.selected .drag-bar { opacity: 1; }
+  .element.has-script.locked .drag-bar { background: rgba(243,156,18,0.95); }
+
   .element.has-script .script-wrapper {
     width: 100%; height: 100%;
     display: block; background: transparent;
@@ -150,9 +194,7 @@
     background: transparent; pointer-events: auto;
   }
   .element.has-script.dragging .script-frame,
-  .element.has-script.dragging .click-outline {
-    pointer-events: none;
-  }
+  .element.has-script.dragging .click-outline { pointer-events: none; }
 
   .element .resize-handle {
     position: absolute; width: 10px; height: 10px;
@@ -160,6 +202,11 @@
     border-radius: 50%; display: none; z-index: 15;
   }
   .element.selected .resize-handle { display: block; }
+  .element.locked.selected .resize-handle {
+    border-color: #f39c12;
+    background: #f39c12;
+    cursor: not-allowed;
+  }
   .resize-handle.br { right: -5px; bottom: -5px; cursor: se-resize; }
   .resize-handle.bl { left: -5px; bottom: -5px; cursor: sw-resize; }
   .resize-handle.tr { right: -5px; top: -5px; cursor: ne-resize; }
@@ -174,6 +221,7 @@
     font-weight: bold; z-index: 16;
   }
   .element.selected .delete-btn { display: flex; }
+  .element.locked.selected .delete-btn { display: none; }
   .element .delete-btn:hover { background: #e74c3c; }
 
   .element .script-badge {
@@ -202,6 +250,7 @@
   }
   .element.has-name .name-label { display: block; }
   .element.selected .name-label { display: block; }
+  .element.locked .name-label { background: #f39c12; }
 
   .group-indicator {
     position: absolute;
@@ -227,18 +276,16 @@
     box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
     font-size: 14px; line-height: 1.4;
     overflow: hidden; word-wrap: break-word; outline: none;
-    cursor: move;
   }
-  .el-rect { width: 160px; height: 100px; border-radius: 6px; cursor: move; }
-  .el-circle { width: 120px; height: 120px; border-radius: 50%; cursor: move; }
+  .el-rect { width: 160px; height: 100px; border-radius: 6px; }
+  .el-circle { width: 120px; height: 120px; border-radius: 50%; }
   .el-triangle {
     width: 0; height: 0;
     border-left: 70px solid transparent;
     border-right: 70px solid transparent;
     border-bottom: 120px solid #0d99ff;
-    cursor: move;
   }
-  .el-arrow { width: 180px; height: 6px; background: #0d99ff; border-radius: 3px; cursor: move; }
+  .el-arrow { width: 180px; height: 6px; background: #0d99ff; border-radius: 3px; }
   .el-arrow::after {
     content: ''; position: absolute; right: -2px; top: 50%;
     transform: translateY(-50%);
@@ -249,28 +296,25 @@
     padding: 4px 6px; color: #222; outline: none;
     min-width: 40px; border-radius: 4px;
     font-size: 18px; line-height: 1.3; white-space: pre-wrap;
-    cursor: move;
   }
   .el-comment {
     width: 200px; background: #fff;
     border: 2px solid #f39c12; border-radius: 10px;
     padding: 10px; font-size: 13px; color: #222;
     box-shadow: 2px 4px 10px rgba(0,0,0,0.15);
-    cursor: move;
   }
   .el-comment::before {
     content: ''; position: absolute; bottom: -10px; left: 20px;
     border: 8px solid transparent; border-top-color: #f39c12;
   }
-  .el-image { max-width: 600px; cursor: move; }
+  .el-image { max-width: 600px; }
   .el-image img { display: block; max-width: 100%; border-radius: 6px; }
   .el-stamp {
     font-size: 60px; line-height: 1;
     filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2));
-    cursor: move;
   }
 
-  /* ===== リモートカーソル ===== */
+  /* ===== カーソル ===== */
   .remote-cursor {
     position: absolute; pointer-events: none; z-index: 9999;
     transition: transform 0.08s linear;
@@ -386,9 +430,7 @@
     background: #f39c12; border-color: #f39c12;
     color: white; font-weight: 600;
   }
-  #propPanel button.code-btn.has-code {
-    background: #27ae60; border-color: #27ae60;
-  }
+  #propPanel button.code-btn.has-code { background: #27ae60; border-color: #27ae60; }
   #propPanel button.action-btn {
     background: #9b59b6; border-color: #9b59b6;
     color: white; font-weight: 600;
@@ -398,13 +440,22 @@
     background: #f39c12; border-color: #f39c12;
     color: white; font-weight: 600;
   }
+  #propPanel button.lock-btn {
+    background: #c0392b; border-color: #c0392b;
+    color: white; font-weight: 600;
+  }
+  #propPanel button.lock-btn.unlocked { background: #f39c12; border-color: #f39c12; }
+  #propPanel button.lock-btn.disabled {
+    background: #2a2a2a; border-color: #444;
+    color: #666; cursor: not-allowed;
+  }
   #propPanel .pos-info {
     font-family: monospace; font-size: 11px;
     color: #0d99ff; background: #1a1a1a;
     padding: 4px 8px; border-radius: 4px;
   }
 
-  /* ===== モーダル共通 ===== */
+  /* ===== モーダル ===== */
   .modal {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.7);
@@ -436,9 +487,7 @@
     color: #999; font-size: 24px; cursor: pointer;
     padding: 0 4px; line-height: 1;
   }
-  .modal-body {
-    padding: 16px 18px; overflow-y: auto; flex: 1;
-  }
+  .modal-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
   .modal-foot {
     padding: 12px 18px; border-top: 1px solid #444;
     display: flex; justify-content: space-between;
@@ -454,114 +503,6 @@
   .modal-foot .actions button.save { background: #0d99ff; color: white; }
   .modal-foot .actions button.remove { background: #c0392b; color: white; }
   .modal-foot .actions button:hover { filter: brightness(1.15); }
-
-  /* ===== 設定モーダル ===== */
-  #settingsModal .settings-section {
-    background: #1f1f1f;
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 14px;
-    border-left: 3px solid #0d99ff;
-  }
-  #settingsModal .settings-section h4 {
-    font-size: 13px;
-    color: #0d99ff;
-    margin-bottom: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  #settingsModal .setting-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid #2a2a2a;
-    gap: 12px;
-  }
-  #settingsModal .setting-row:last-child { border-bottom: none; }
-  #settingsModal .setting-label {
-    flex: 1; font-size: 13px; color: #ddd;
-  }
-  #settingsModal .setting-label .desc {
-    font-size: 11px; color: #888; margin-top: 2px;
-  }
-  #settingsModal .setting-control {
-    display: flex; align-items: center; gap: 8px;
-    flex-shrink: 0;
-  }
-  /* トグルスイッチ */
-  .toggle {
-    position: relative;
-    width: 44px; height: 24px;
-    background: #444;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: background 0.2s;
-    flex-shrink: 0;
-  }
-  .toggle.on { background: #0d99ff; }
-  .toggle::after {
-    content: '';
-    position: absolute;
-    top: 2px; left: 2px;
-    width: 20px; height: 20px;
-    background: white;
-    border-radius: 50%;
-    transition: transform 0.2s;
-  }
-  .toggle.on::after { transform: translateX(20px); }
-  #settingsModal input[type="text"],
-  #settingsModal input[type="number"] {
-    background: #2a2a2a; color: #eee;
-    border: 1px solid #555; border-radius: 4px;
-    padding: 6px 10px; font-size: 13px;
-    outline: none;
-  }
-  #settingsModal input:focus { border-color: #0d99ff; }
-  #settingsModal button.small {
-    background: #3a3a3a; color: #eee;
-    border: 1px solid #555; border-radius: 4px;
-    padding: 6px 12px; font-size: 12px; cursor: pointer;
-  }
-  #settingsModal button.small:hover { background: #4a4a4a; }
-  #settingsModal button.primary {
-    background: #0d99ff; color: white; border: none;
-  }
-  #settingsModal button.primary:hover { background: #0b7fd9; }
-  .bgm-status {
-    font-size: 11px;
-    color: #2ecc71;
-    background: #0d1f14;
-    padding: 6px 10px;
-    border-radius: 4px;
-    margin-top: 8px;
-    font-family: monospace;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    justify-content: space-between;
-  }
-  .bgm-status.paused { color: #f39c12; background: #1f1a0d; }
-  .bgm-status.empty { color: #888; background: #1a1a1a; }
-  .vol-slider {
-    -webkit-appearance: none;
-    width: 100px; height: 4px;
-    background: #444; border-radius: 2px;
-    outline: none;
-  }
-  .vol-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px; height: 14px;
-    background: #0d99ff;
-    border-radius: 50%;
-    cursor: pointer;
-  }
-  .vol-slider::-moz-range-thumb {
-    width: 14px; height: 14px;
-    background: #0d99ff;
-    border-radius: 50%;
-    cursor: pointer;
-    border: none;
-  }
 
   /* ===== コードエディタ ===== */
   #codeTextarea {
@@ -583,9 +524,7 @@
     background: #333; padding: 1px 5px;
     border-radius: 3px; color: #6cc; font-size: 11px;
   }
-  .code-foot .examples {
-    display: flex; gap: 6px; flex-wrap: wrap; flex: 1;
-  }
+  .code-foot .examples { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
   .code-foot .examples button {
     background: #3a3a3a; color: #ccc;
     border: 1px solid #555; padding: 4px 10px;
@@ -594,10 +533,8 @@
 
   /* ===== ビジュアルスクリプト ===== */
   #visualScript .vs-section {
-    background: #1f1f1f;
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 14px;
+    background: #1f1f1f; border-radius: 8px;
+    padding: 14px 16px; margin-bottom: 14px;
     border-left: 3px solid #9b59b6;
   }
   #visualScript .vs-section h4 {
@@ -632,7 +569,7 @@
     margin-top: 8px;
   }
 
-  /* ===== グループ編集 ===== */
+  /* ===== グループ ===== */
   .group-member-list {
     background: #1f1f1f; border-radius: 6px;
     padding: 10px; max-height: 200px;
@@ -872,10 +809,43 @@
   }
   #pasteHint.show { display: block; }
 
-  /* BGMボタン強調表示 */
   #bgmBtn.playing {
     background: #27ae60 !important;
     border-color: #27ae60 !important;
+  }
+
+  /* ===== 鉛筆ツールバー ===== */
+  #penOptions {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: #232323;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    padding: 4px 8px;
+  }
+  #penOptions.show { display: flex; }
+  #penOptions label {
+    font-size: 11px;
+    color: #999;
+  }
+  #penOptions input[type="range"] {
+    width: 80px;
+  }
+  #penOptions input[type="color"] {
+    width: 28px; height: 28px;
+    border: 2px solid #555;
+    border-radius: 4px;
+    cursor: pointer;
+    background: none;
+    padding: 0;
+  }
+  #penOptions .size-label {
+    font-size: 11px;
+    color: #0d99ff;
+    font-family: monospace;
+    min-width: 24px;
+    text-align: center;
   }
 </style>
 </head>
@@ -902,12 +872,30 @@
 
 <div id="toolbar">
   <strong>🎨 FigmaDG</strong>
-  <input id="roomInput" placeholder="部屋ID" style="width:110px">
+  <input id="roomInput" placeholder="部屋ID" style="width:100px">
   <button id="joinBtn">参加</button>
+  <span class="sep"></span>
+
+  <!-- ツール選択 -->
+  <div class="tool-group">
+    <button id="toolSelect" class="active" title="選択">🖱 選択</button>
+    <button id="toolPen" title="鉛筆 (P)">✏️ 鉛筆</button>
+    <button id="toolEraser" title="消しゴム (E)">🧽 消しゴム</button>
+  </div>
+
+  <!-- 鉛筆オプション -->
+  <div id="penOptions">
+    <label>色</label>
+    <input type="color" id="penColor" value="#e74c3c">
+    <label>太さ</label>
+    <input type="range" id="penWidth" min="1" max="30" value="4">
+    <span class="size-label" id="penWidthLabel">4</span>
+  </div>
+
   <span class="sep"></span>
   <button id="slashBtn">/ コマンド</button>
   <button id="chatBtn">💬 履歴</button>
-  <button id="logBtn" title="ログ表示">📜 ログ</button>
+  <button id="logBtn" title="ログ">📜 ログ</button>
   <button id="bgmBtn" title="BGM">🎵 BGM</button>
   <button id="clearBtn">🗑 全消去</button>
   <span class="sep"></span>
@@ -921,6 +909,7 @@
 
 <div id="main">
   <div id="canvas">
+    <svg id="drawLayer"></svg>
     <div class="selection-rect" id="selectionRect"></div>
     <div id="hint"></div>
     <div id="status">未接続</div>
@@ -981,7 +970,7 @@
     </div>
     <div class="modal-body">
       <div class="vs-help">
-        コードを書かずに、ボタン等の動作を設定できます。<br>
+        コードを書かずに動作を設定できます。<br>
         例: 「このボタンを押したら、〇〇を (x, y) に表示する」
       </div>
       <div class="vs-section">
@@ -991,7 +980,7 @@
           <select id="vsTrigger">
             <option value="click">クリック時</option>
             <option value="hover">マウスオーバー時</option>
-            <option value="longpress">長押し時</option>
+            <option value="dblclick">ダブルクリック時</option>
           </select>
         </div>
       </div>
@@ -1008,9 +997,11 @@
             <option value="move">指定座標に移動</option>
             <option value="color">色を変更</option>
             <option value="notify">メッセージ表示</option>
+            <option value="selfColor">自分自身の色を変更</option>
+            <option value="selfToggle">自分自身の表示/非表示</option>
           </select>
         </div>
-        <div class="vs-row">
+        <div class="vs-row" id="vsTargetRow">
           <label>対象</label>
           <select id="vsTarget">
             <option value="">（対象なし／自分自身）</option>
@@ -1067,7 +1058,7 @@
   </div>
 </div>
 
-<!-- ============ 設定モーダル ============ -->
+<!-- 設定 -->
 <div class="modal" id="settingsModal">
   <div class="modal-box narrow">
     <div class="modal-head">
@@ -1075,146 +1066,78 @@
       <button class="close-btn" id="settingsClose">×</button>
     </div>
     <div class="modal-body">
-
-      <!-- 表示 -->
-      <div class="settings-section">
-        <h4>👁 表示</h4>
-        <div class="setting-row">
-          <div class="setting-label">
-            グリッドを表示
-            <div class="desc">背景のドット模様</div>
-          </div>
-          <div class="setting-control">
-            <div class="toggle on" id="toggleGrid"></div>
-          </div>
+      <div class="settings-section" style="background:#1f1f1f;border-radius:8px;padding:14px 16px;margin-bottom:14px;border-left:3px solid #0d99ff;">
+        <h4 style="font-size:13px;color:#0d99ff;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">👁 表示</h4>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a;">
+          <div style="flex:1;font-size:13px;color:#ddd;">グリッドを表示<div style="font-size:11px;color:#888;margin-top:2px;">背景のドット模様</div></div>
+          <div class="toggle on" id="toggleGrid"></div>
         </div>
-        <div class="setting-row">
-          <div class="setting-label">
-            他ユーザーのカーソルを表示
-            <div class="desc">リアルタイムのカーソル</div>
-          </div>
-          <div class="setting-control">
-            <div class="toggle on" id="toggleCursors"></div>
-          </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a;">
+          <div style="flex:1;font-size:13px;color:#ddd;">他ユーザーのカーソル<div style="font-size:11px;color:#888;margin-top:2px;">リアルタイムカーソル</div></div>
+          <div class="toggle on" id="toggleCursors"></div>
         </div>
-        <div class="setting-row">
-          <div class="setting-label">
-            座標ディスプレイを表示
-            <div class="desc">ツールバーの X/Y 表示</div>
-          </div>
-          <div class="setting-control">
-            <div class="toggle on" id="toggleCoordDisplay"></div>
-          </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a;">
+          <div style="flex:1;font-size:13px;color:#ddd;">座標ディスプレイ<div style="font-size:11px;color:#888;margin-top:2px;">ツールバーの X/Y</div></div>
+          <div class="toggle on" id="toggleCoordDisplay"></div>
         </div>
-        <div class="setting-row">
-          <div class="setting-label">
-            クリック時の座標トースト
-            <div class="desc">何もないところをクリックしたときの緑の吹き出し</div>
-          </div>
-          <div class="setting-control">
-            <div class="toggle on" id="toggleCoordToast"></div>
-          </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
+          <div style="flex:1;font-size:13px;color:#ddd;">クリック時の座標トースト<div style="font-size:11px;color:#888;margin-top:2px;">緑の吹き出し</div></div>
+          <div class="toggle on" id="toggleCoordToast"></div>
         </div>
       </div>
-
-      <!-- ログ -->
-      <div class="settings-section">
-        <h4>📜 ログ</h4>
-        <div class="setting-row">
-          <div class="setting-label">
-            ログを自動表示
-            <div class="desc">イベント発生時にログパネルを開く</div>
-          </div>
-          <div class="setting-control">
-            <div class="toggle on" id="toggleLogAuto"></div>
-          </div>
+      <div class="settings-section" style="background:#1f1f1f;border-radius:8px;padding:14px 16px;margin-bottom:14px;border-left:3px solid #f39c12;">
+        <h4 style="font-size:13px;color:#f39c12;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">📜 ログ</h4>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a;">
+          <div style="flex:1;font-size:13px;color:#ddd;">ログを自動表示<div style="font-size:11px;color:#888;margin-top:2px;">イベント時に開く</div></div>
+          <div class="toggle on" id="toggleLogAuto"></div>
         </div>
-        <div class="setting-row">
-          <div class="setting-label">
-            座標クリックをログに記録
-            <div class="desc">クリック時の座標をログに残す</div>
-          </div>
-          <div class="setting-control">
-            <div class="toggle on" id="toggleLogCoord"></div>
-          </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a;">
+          <div style="flex:1;font-size:13px;color:#ddd;">座標クリックをログに記録</div>
+          <div class="toggle on" id="toggleLogCoord"></div>
         </div>
-        <div class="setting-row">
-          <div class="setting-label">
-            要素イベントをログに記録
-            <div class="desc">他ユーザーが要素を追加した等</div>
-          </div>
-          <div class="setting-control">
-            <div class="toggle on" id="toggleLogEvent"></div>
-          </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
+          <div style="flex:1;font-size:13px;color:#ddd;">要素イベントをログに記録</div>
+          <div class="toggle on" id="toggleLogEvent"></div>
         </div>
       </div>
-
-      <!-- BGM -->
-      <div class="settings-section">
-        <h4>🎵 BGM（自分のみ）</h4>
-        <div class="setting-row">
-          <div class="setting-label">
-            音声を再生
-            <div class="desc">他のユーザーには聞こえません</div>
-          </div>
-          <div class="setting-control">
-            <div class="toggle" id="toggleBgm"></div>
-          </div>
+      <div class="settings-section" style="background:#1f1f1f;border-radius:8px;padding:14px 16px;margin-bottom:14px;border-left:3px solid #27ae60;">
+        <h4 style="font-size:13px;color:#27ae60;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">🎵 BGM（自分のみ）</h4>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a;">
+          <div style="flex:1;font-size:13px;color:#ddd;">音声を再生<div style="font-size:11px;color:#888;margin-top:2px;">他ユーザーには聞こえません</div></div>
+          <div class="toggle" id="toggleBgm"></div>
         </div>
-        <div class="setting-row">
-          <div class="setting-label">
-            音量
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a;">
+          <div style="flex:1;font-size:13px;color:#ddd;">音量</div>
+          <input type="range" id="bgmVolume" min="0" max="100" value="50" style="width:100px;">
+          <span id="bgmVolLabel" style="font-size:11px;color:#999;min-width:36px;text-align:right;">50%</span>
+        </div>
+        <div style="padding:8px 0;">
+          <div style="font-size:12px;color:#ddd;margin-bottom:6px;">音声URL</div>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="bgmUrl" placeholder="https://.../music.mp3" style="flex:1;background:#2a2a2a;color:#eee;border:1px solid #555;border-radius:4px;padding:6px 10px;font-size:12px;">
+            <button id="bgmLoad" style="background:#0d99ff;color:white;border:none;border-radius:4px;padding:6px 12px;font-size:12px;cursor:pointer;">読込</button>
           </div>
-          <div class="setting-control">
-            <input type="range" class="vol-slider" id="bgmVolume" min="0" max="100" value="50">
-            <span id="bgmVolLabel" style="font-size:11px;color:#999;min-width:36px;">50%</span>
-          </div>
+          <input type="file" id="bgmFile" accept="audio/*" style="margin-top:6px;font-size:11px;color:#999;">
         </div>
-        <div class="setting-row">
-          <div class="setting-label" style="flex:1;">
-            音声URL
-            <div class="desc">mp3 / ogg / wav のURL</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:6px;margin-top:4px;">
-          <input type="text" id="bgmUrl" placeholder="https://.../music.mp3" style="flex:1;">
-          <button class="small primary" id="bgmLoad">読込</button>
-        </div>
-        <div style="display:flex;gap:6px;margin-top:8px;">
-          <input type="file" id="bgmFile" accept="audio/*" style="flex:1;font-size:11px;">
-        </div>
-        <div class="bgm-status empty" id="bgmStatus">
+        <div id="bgmStatus" style="font-size:11px;color:#888;background:#1a1a1a;padding:6px 10px;border-radius:4px;margin-top:8px;font-family:monospace;display:flex;justify-content:space-between;align-items:center;">
           <span id="bgmStatusText">未設定</span>
           <span>
-            <button class="small" id="bgmPlayPause" style="display:none;">▶</button>
-            <button class="small" id="bgmStop" style="display:none;">■</button>
+            <button id="bgmPlayPause" style="display:none;background:#3a3a3a;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;">▶</button>
+            <button id="bgmStop" style="display:none;background:#3a3a3a;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;">■</button>
           </span>
         </div>
       </div>
-
-      <!-- その他 -->
-      <div class="settings-section">
-        <h4>🔧 その他</h4>
-        <div class="setting-row">
-          <div class="setting-label">
-            履歴チャットを自動で開く
-            <div class="desc">ログイン時にチャット履歴を表示</div>
-          </div>
-          <div class="setting-control">
-            <div class="toggle" id="toggleAutoChat"></div>
-          </div>
+      <div class="settings-section" style="background:#1f1f1f;border-radius:8px;padding:14px 16px;border-left:3px solid #9b59b6;">
+        <h4 style="font-size:13px;color:#9b59b6;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">🔧 その他</h4>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a2a;">
+          <div style="flex:1;font-size:13px;color:#ddd;">履歴チャットを自動で開く</div>
+          <div class="toggle" id="toggleAutoChat"></div>
         </div>
-        <div class="setting-row">
-          <div class="setting-label">
-            効果音
-            <div class="desc">要素追加時などに音を鳴らす</div>
-          </div>
-          <div class="setting-control">
-            <div class="toggle" id="toggleSfx"></div>
-          </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
+          <div style="flex:1;font-size:13px;color:#ddd;">効果音</div>
+          <div class="toggle" id="toggleSfx"></div>
         </div>
       </div>
-
     </div>
     <div class="modal-foot">
       <div class="actions">
@@ -1258,8 +1181,30 @@
   <div id="logBody"></div>
 </div>
 
-<!-- BGM オーディオ -->
 <audio id="bgmAudio" loop></audio>
+
+<style>
+  .toggle {
+    position: relative;
+    width: 44px; height: 24px;
+    background: #444;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: #0d99ff; }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 20px; height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(20px); }
+</style>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -1288,8 +1233,8 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
-// ============ 設定 (localStorage) ============
-const SETTINGS_KEY = 'figmadg-settings-v1';
+// ============ 設定 ============
+const SETTINGS_KEY = 'figmadg-settings-v2';
 const DEFAULT_SETTINGS = {
   showGrid: true,
   showRemoteCursors: true,
@@ -1324,6 +1269,8 @@ let elements = {};
 let elementRefs = {};
 let groups = {};
 let groupIndicators = {};
+let strokes = {};         // 描画データ { id: { points: [{x,y},...], color, width, author } }
+let strokeRefs = {};      // SVG path の参照
 let myCursorRef = null;
 let unsubscribers = [];
 let banUnsub = null, usersUnsub = null, chatUnsub = null;
@@ -1344,8 +1291,18 @@ let scriptLogLines = [];
 let isSelecting = false;
 let selectionStart = { x: 0, y: 0 };
 
+// ツール
+let currentTool = 'select';  // 'select' | 'pen' | 'eraser'
+let penColor = '#e74c3c';
+let penWidth = 4;
+let isDrawing = false;
+let currentStroke = null;     // 描画中 { id, points: [] }
+let currentStrokeEl = null;   // SVG path
+let drawnStrokeIds = new Set(); // 自分の描いたストロークID（消しゴム用）
+
 // DOM
 const canvas = document.getElementById('canvas');
+const drawLayer = document.getElementById('drawLayer');
 const selectionRect = document.getElementById('selectionRect');
 const statusEl = document.getElementById('status');
 const usersEl = document.getElementById('users');
@@ -1401,12 +1358,11 @@ const STICKY_COLORS = ['#fef08a','#fbcfe8','#bfdbfe','#bbf7d0','#fed7aa','#e9d5f
 const SHAPE_COLORS  = ['#0d99ff','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'];
 const STAMPS        = ['⭐','❤️','👍','🎉','🔥','✨','💯','👀','🚀','🎨','💡','✅'];
 
-// コードテンプレート
 const CODE_TEMPLATES = {
   button: {
     html: `<button id="btn">クリック！</button>\n<p id="out"></p>`,
     css: `body{margin:0;padding:8px;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;}\n#btn{padding:12px 24px;background:#0d99ff;color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(13,153,255,0.3);}\n#btn:hover{background:#0b7fd9;transform:translateY(-2px);}`,
-    js: `let count=0;\ndocument.getElementById('btn').addEventListener('click',()=>{count++;document.getElementById('out').textContent='クリック: '+count;});`
+    js: `let count=0;\ndocument.getElementById('btn').addEventListener('click',()=>{count++;document.getElementById('out').textContent='クリック: '+count;parent.postMessage({type:'notify',text:'押された！'},'*');});`
   },
   hover: {
     html: `<div id="box"><span id="icon">🎁</span><div id="text">カーソルを合わせて</div></div>`,
@@ -1442,6 +1398,7 @@ function escapeHtml(s) {
 }
 function newElemId() { return 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
 function newGroupId() { return 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
+function newStrokeId() { return 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
 function getElementSize(el) {
   if (el.width && el.height) return { w: el.width, h: el.height };
   switch (el.type) {
@@ -1458,24 +1415,31 @@ function getElementSize(el) {
   }
 }
 
+// 要素がロックされているか（自分が出したものではない場合に編集不可）
+function isElementLocked(el) {
+  if (!el) return false;
+  // 明示的にロックされていて、かつ作成者でないなら編集不可
+  if (el.locked) {
+    const isOwner = (el.authorUid && el.authorUid === currentUser?.uid);
+    // 管理者は常に編集可能
+    if (isAdmin) return false;
+    if (!isOwner) return true;
+  }
+  return false;
+}
+
 // ============ 設定適用 ============
 function applySettings() {
-  // グリッド
   canvas.classList.toggle('no-grid', !settings.showGrid);
-  // 座標ディスプレイ
   coordDisplay.style.display = settings.showCoordDisplay ? '' : 'none';
-  // 座標トースト
   coordToast.classList.toggle('hidden-by-setting', !settings.showCoordToast);
-  // リモートカーソル
   canvas.querySelectorAll('.remote-cursor').forEach(el => {
     el.classList.toggle('hidden', !settings.showRemoteCursors);
   });
-  // BGM
   bgmAudio.volume = (settings.bgmVolume || 50) / 100;
   bgmBtn.classList.toggle('playing', settings.bgmEnabled && !bgmAudio.paused);
 }
 
-// ============ 設定UI ============
 function bindToggle(id, key, onChange) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -1490,7 +1454,6 @@ function bindToggle(id, key, onChange) {
 }
 
 function openSettings() {
-  // 現在値を反映
   document.getElementById('toggleGrid').classList.toggle('on', settings.showGrid);
   document.getElementById('toggleCursors').classList.toggle('on', settings.showRemoteCursors);
   document.getElementById('toggleCoordDisplay').classList.toggle('on', settings.showCoordDisplay);
@@ -1513,23 +1476,16 @@ function updateBgmStatus() {
   const textEl = document.getElementById('bgmStatusText');
   const playBtn = document.getElementById('bgmPlayPause');
   const stopBtn = document.getElementById('bgmStop');
-
-  statusEl.classList.remove('empty', 'paused');
-
   if (!settings.bgmUrl && !bgmAudio.src) {
     textEl.textContent = '未設定';
-    statusEl.classList.add('empty');
     playBtn.style.display = 'none';
     stopBtn.style.display = 'none';
     return;
   }
-
   playBtn.style.display = '';
   stopBtn.style.display = '';
-
   if (bgmAudio.paused) {
     textEl.textContent = '⏸ 一時停止中';
-    statusEl.classList.add('paused');
     playBtn.textContent = '▶';
   } else {
     textEl.textContent = '🎵 再生中';
@@ -1537,7 +1493,6 @@ function updateBgmStatus() {
   }
 }
 
-// 設定トグル登録
 bindToggle('toggleGrid', 'showGrid');
 bindToggle('toggleCursors', 'showRemoteCursors');
 bindToggle('toggleCoordDisplay', 'showCoordDisplay');
@@ -1550,17 +1505,11 @@ bindToggle('toggleSfx', 'sfx');
 bindToggle('toggleBgm', 'bgmEnabled', async (on) => {
   if (on && settings.bgmUrl) {
     try {
-      if (!bgmAudio.src || !bgmAudio.src.includes(settings.bgmUrl)) {
-        bgmAudio.src = settings.bgmUrl;
-      }
+      if (!bgmAudio.src) bgmAudio.src = settings.bgmUrl;
       await bgmAudio.play();
       updateBgmStatus();
       bgmBtn.classList.add('playing');
-      showHint('🎵 BGM 再生中');
-    } catch (e) {
-      console.warn(e);
-      showHint('⚠️ 音声再生失敗');
-    }
+    } catch (e) { showHint('⚠️ 音声再生失敗'); }
   } else {
     bgmAudio.pause();
     updateBgmStatus();
@@ -1575,100 +1524,59 @@ document.getElementById('bgmVolume').addEventListener('input', (e) => {
   document.getElementById('bgmVolLabel').textContent = v + '%';
   saveSettings();
 });
-
 document.getElementById('bgmLoad').addEventListener('click', async () => {
   const url = document.getElementById('bgmUrl').value.trim();
   if (!url) return;
   settings.bgmUrl = url;
   saveSettings();
   bgmAudio.src = url;
-  try {
-    bgmAudio.load();
-    showHint('🎵 BGM URL を読み込みました');
-    updateBgmStatus();
-  } catch (e) {
-    showHint('❌ 読み込み失敗');
-  }
+  showHint('🎵 BGM URL 読み込み');
+  updateBgmStatus();
 });
-
-document.getElementById('bgmFile').addEventListener('change', async (e) => {
+document.getElementById('bgmFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
   const url = URL.createObjectURL(file);
   settings.bgmUrl = url;
   saveSettings();
   bgmAudio.src = url;
-  showHint('🎵 ローカル音声を読み込みました');
+  showHint('🎵 ローカル音声読み込み');
   updateBgmStatus();
 });
-
 document.getElementById('bgmPlayPause').addEventListener('click', async () => {
   if (bgmAudio.paused) {
-    if (!bgmAudio.src) {
-      showHint('⚠️ 音声が設定されていません');
-      return;
-    }
-    try {
-      await bgmAudio.play();
-      showHint('🎵 再生');
-    } catch (e) {
-      showHint('⚠️ 再生失敗');
-    }
-  } else {
-    bgmAudio.pause();
-    showHint('⏸ 一時停止');
-  }
+    if (!bgmAudio.src) { showHint('⚠️ 音声未設定'); return; }
+    try { await bgmAudio.play(); } catch(e){}
+  } else bgmAudio.pause();
   updateBgmStatus();
 });
-
 document.getElementById('bgmStop').addEventListener('click', () => {
   bgmAudio.pause();
   bgmAudio.currentTime = 0;
-  showHint('⏹ 停止');
   updateBgmStatus();
 });
-
-// BGMボタン（ツールバー）
 bgmBtn.addEventListener('click', async () => {
-  if (!settings.bgmUrl) {
-    openSettings();
-    showHint('⚙️ 設定からBGMを読み込んでください');
-    return;
-  }
+  if (!settings.bgmUrl) { openSettings(); showHint('⚙️ 設定から読み込み'); return; }
   if (bgmAudio.paused) {
     if (!bgmAudio.src) bgmAudio.src = settings.bgmUrl;
-    try {
-      await bgmAudio.play();
-      settings.bgmEnabled = true;
-      document.getElementById('toggleBgm').classList.add('on');
-      bgmBtn.classList.add('playing');
-      showHint('🎵 BGM 再生');
-    } catch (e) {
-      showHint('⚠️ 音声再生失敗');
-    }
+    try { await bgmAudio.play(); settings.bgmEnabled = true; document.getElementById('toggleBgm').classList.add('on'); bgmBtn.classList.add('playing'); } catch(e){}
   } else {
-    bgmAudio.pause();
-    settings.bgmEnabled = false;
+    bgmAudio.pause(); settings.bgmEnabled = false;
     document.getElementById('toggleBgm').classList.remove('on');
     bgmBtn.classList.remove('playing');
-    showHint('⏸ BGM 停止');
   }
   saveSettings();
   updateBgmStatus();
 });
-
-// 設定を保存するたびにトグルを反映
 document.getElementById('settingsClose').addEventListener('click', () => settingsModal.classList.remove('show'));
 document.getElementById('settingsClose2').addEventListener('click', () => settingsModal.classList.remove('show'));
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
-
 document.getElementById('settingsReset').addEventListener('click', () => {
   if (!confirm('設定をリセットしますか？')) return;
   settings = { ...DEFAULT_SETTINGS };
   saveSettings();
   applySettings();
   openSettings();
-  showHint('⚙️ 設定をリセット');
 });
 
 // ============ ログイン ============
@@ -1685,7 +1593,6 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   location.reload();
 });
 
-// ============ BAN ============
 function showBanScreen() {
   if (isBanned) return;
   isBanned = true;
@@ -1702,7 +1609,6 @@ function showBanScreen() {
   }, 1800);
 }
 
-// ============ 認証 ============
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     currentUser = null; isAdmin = false;
@@ -1750,12 +1656,15 @@ function joinRoom(id) {
   unsubscribers.forEach(fn => fn());
   unsubscribers = [];
   canvas.querySelectorAll('.element, .remote-cursor, .cursor-bubble, .group-indicator').forEach(el => el.remove());
+  drawLayer.innerHTML = '';
   elements = {}; elementRefs = {}; groups = {}; groupIndicators = {};
+  strokes = {}; strokeRefs = {}; drawnStrokeIds = new Set();
   usersEl.innerHTML = '';
 
   roomId = id;
   statusEl.textContent = `📁 ${roomId}  |  ${currentUser.displayName || currentUser.email}`;
 
+  // カーソル
   const cursorsRef = ref(db, `rooms/${roomId}/cursors`);
   myCursorRef = ref(db, `rooms/${roomId}/cursors/${currentUser.uid}`);
   onDisconnect(myCursorRef).remove();
@@ -1780,6 +1689,7 @@ function joinRoom(id) {
     });
   }));
 
+  // 吹き出し
   unsubscribers.push(onValue(ref(db, `rooms/${roomId}/bubbles`), snap => {
     const data = snap.val() || {};
     canvas.querySelectorAll('.cursor-bubble').forEach(el => el.remove());
@@ -1796,6 +1706,7 @@ function joinRoom(id) {
     });
   }));
 
+  // 要素
   unsubscribers.push(onValue(ref(db, `rooms/${roomId}/elements`), snap => {
     const data = snap.val() || {};
     Object.keys(elementRefs).forEach(eid => {
@@ -1809,11 +1720,19 @@ function joinRoom(id) {
       const isEditing = elementRefs[eid] &&
         elementRefs[eid].querySelector('[contenteditable="true"]') === document.activeElement;
       const isNew = !elementRefs[eid];
+      const oldEl = elements[eid];
       elements[eid] = el;
-      if (isNew) {
+      // 変化の検出（visible/opacity/color/position）
+      const needsRebuild = isNew || (oldEl && (
+        oldEl.type !== el.type ||
+        (oldEl.code && !el.code) || (!oldEl.code && el.code)
+      ));
+
+      if (needsRebuild) {
+        if (elementRefs[eid]) elementRefs[eid].remove();
         elementRefs[eid] = createElementDOM(eid, el);
         canvas.appendChild(elementRefs[eid]);
-        if (el.author !== (currentUser.displayName || currentUser.email) && settings.logEvent) {
+        if (isNew && el.authorUid !== currentUser.uid && el.author !== (currentUser.displayName || currentUser.email) && settings.logEvent) {
           const label = el.name || TYPE_LABEL[el.type] || el.type;
           addLog('event', `✨ 「${label}」が (${el.x}, ${el.y}) に現れました by ${el.author || '?'}`);
         }
@@ -1825,10 +1744,35 @@ function joinRoom(id) {
     updatePropPanelIfNeeded();
   }));
 
+  // グループ
   unsubscribers.push(onValue(ref(db, `rooms/${roomId}/groups`), snap => {
     groups = snap.val() || {};
     refreshAllGroupIndicators();
     updatePropPanelIfNeeded();
+  }));
+
+  // ストローク
+  unsubscribers.push(onValue(ref(db, `rooms/${roomId}/strokes`), snap => {
+    const data = snap.val() || {};
+    Object.keys(strokeRefs).forEach(sid => {
+      if (!data[sid]) {
+        strokeRefs[sid].remove();
+        delete strokeRefs[sid];
+        delete strokes[sid];
+      }
+    });
+    Object.entries(data).forEach(([sid, s]) => {
+      strokes[sid] = s;
+      if (s.authorUid === currentUser.uid) drawnStrokeIds.add(sid);
+      if (!strokeRefs[sid]) {
+        strokeRefs[sid] = createStrokePath(sid, s);
+        drawLayer.appendChild(strokeRefs[sid]);
+      } else {
+        strokeRefs[sid].setAttribute('d', pointsToPath(s.points));
+        strokeRefs[sid].setAttribute('stroke', s.color);
+        strokeRefs[sid].setAttribute('stroke-width', s.width);
+      }
+    });
   }));
 
   if (chatUnsub) chatUnsub();
@@ -1847,6 +1791,307 @@ function joinRoom(id) {
   if (settings.autoChat) toggleChat(true);
 }
 
+// ============ ストローク描画 ============
+function pointsToPath(points) {
+  if (!points || points.length === 0) return '';
+  if (points.length === 1) {
+    const p = points[0];
+    return `M ${p.x} ${p.y} L ${p.x + 0.1} ${p.y + 0.1}`;
+  }
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    d += ` L ${points[i].x} ${points[i].y}`;
+  }
+  return d;
+}
+
+function createStrokePath(sid, s) {
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', pointsToPath(s.points));
+  path.setAttribute('stroke', s.color);
+  path.setAttribute('stroke-width', s.width);
+  path.dataset.strokeId = sid;
+  path.style.pointerEvents = 'stroke';
+  path.style.cursor = 'pointer';
+  return path;
+}
+
+// キャンバス座標を取得
+function getCanvasCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: Math.round(e.clientX - rect.left),
+    y: Math.round(e.clientY - rect.top)
+  };
+}
+
+// ============ ツール切替 ============
+function setTool(tool) {
+  currentTool = tool;
+  document.getElementById('toolSelect').classList.toggle('active', tool === 'select');
+  document.getElementById('toolPen').classList.toggle('active', tool === 'pen');
+  document.getElementById('toolEraser').classList.toggle('active', tool === 'eraser');
+  document.getElementById('penOptions').classList.toggle('show', tool === 'pen');
+  canvas.className = 'mode-' + tool;
+  if (tool !== 'select') {
+    clearSelection();
+    propPanel.classList.remove('show');
+  }
+}
+document.getElementById('toolSelect').addEventListener('click', () => setTool('select'));
+document.getElementById('toolPen').addEventListener('click', () => setTool('pen'));
+document.getElementById('toolEraser').addEventListener('click', () => setTool('eraser'));
+
+document.getElementById('penColor').addEventListener('input', (e) => {
+  penColor = e.target.value;
+});
+document.getElementById('penWidth').addEventListener('input', (e) => {
+  penWidth = parseInt(e.target.value);
+  document.getElementById('penWidthLabel').textContent = penWidth;
+});
+
+// ============ マウスダウン（キャンバス） ============
+canvas.addEventListener('mousedown', (e) => {
+  if (!currentUser) return;
+
+  // 鉛筆モード
+  if (currentTool === 'pen' && (e.target === canvas || e.target === drawLayer || e.target.id === 'drawLayer')) {
+    e.preventDefault();
+    isDrawing = true;
+    const { x, y } = getCanvasCoords(e);
+    const sid = newStrokeId();
+    currentStroke = { id: sid, points: [{ x, y }], color: penColor, width: penWidth };
+    currentStrokeEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    currentStrokeEl.setAttribute('d', pointsToPath(currentStroke.points));
+    currentStrokeEl.setAttribute('stroke', penColor);
+    currentStrokeEl.setAttribute('stroke-width', penWidth);
+    currentStrokeEl.setAttribute('stroke-linecap', 'round');
+    currentStrokeEl.setAttribute('stroke-linejoin', 'round');
+    currentStrokeEl.setAttribute('fill', 'none');
+    drawLayer.appendChild(currentStrokeEl);
+    return;
+  }
+
+  // 消しゴムモード
+  if (currentTool === 'eraser') {
+    const target = e.target.closest('[data-stroke-id]');
+    if (target) {
+      const sid = target.dataset.strokeId;
+      const s = strokes[sid];
+      if (!s) return;
+      // 自分の描いたものか管理者のみ削除可能
+      if (s.authorUid !== currentUser.uid && !isAdmin) {
+        showHint('🔒 他人の描画は消せません');
+        return;
+      }
+      remove(ref(db, `rooms/${roomId}/strokes/${sid}`));
+      showHint('🧽 消去');
+    }
+    return;
+  }
+
+  // 選択モード
+  if (e.target === canvas || e.target.id === 'selectionRect') {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (settings.showCoordToast) {
+      coordToast.textContent = `📍 X: ${Math.round(x)}, Y: ${Math.round(y)}`;
+      coordToast.style.left = e.clientX + 'px';
+      coordToast.style.top = e.clientY + 'px';
+      coordToast.classList.add('show');
+      clearTimeout(window._coordToastTimer);
+      window._coordToastTimer = setTimeout(() => coordToast.classList.remove('show'), 1200);
+    }
+    if (settings.logCoord) {
+      addLog('coord', `🖱 クリック座標: (${Math.round(x)}, ${Math.round(y)})`);
+    }
+
+    if (!e.shiftKey && !e.metaKey && !e.ctrlKey) {
+      clearSelection();
+      propPanel.classList.remove('show');
+    }
+    isSelecting = true;
+    selectionStart = { x, y };
+    selectionRect.style.left = x + 'px';
+    selectionRect.style.top = y + 'px';
+    selectionRect.style.width = '0px';
+    selectionRect.style.height = '0px';
+    selectionRect.classList.add('show');
+    canvas.classList.add('selecting');
+    hideSlashMenu();
+  }
+});
+
+// マウス移動
+canvas.addEventListener('mousemove', e => {
+  if (!currentUser) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  if (settings.showCoordDisplay) {
+    coordDisplay.textContent = `X: ${Math.round(x)}  Y: ${Math.round(y)}`;
+  }
+
+  if (myCursorRef) {
+    const now = Date.now();
+    if (!window._lastCursorUpdate || now - window._lastCursorUpdate > 50) {
+      window._lastCursorUpdate = now;
+      const name = currentUser.displayName || currentUser.email.split('@')[0];
+      const color = colorForUid(currentUser.uid);
+      set(myCursorRef, { x, y, name, color, timestamp: now }).catch(()=>{});
+      const bubblesRef = ref(db, `rooms/${roomId}/bubbles/${currentUser.uid}`);
+      update(bubblesRef, { x, y, name, color }).catch(()=>{});
+      myBubble.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+    }
+  }
+
+  // 描画中
+  if (isDrawing && currentStroke && currentStrokeEl) {
+    const px = Math.round(x), py = Math.round(y);
+    const last = currentStroke.points[currentStroke.points.length - 1];
+    if (!last || Math.abs(last.x - px) + Math.abs(last.y - py) > 1) {
+      currentStroke.points.push({ x: px, y: py });
+      currentStrokeEl.setAttribute('d', pointsToPath(currentStroke.points));
+    }
+    return;
+  }
+
+  if (isSelecting) {
+    const x1 = Math.min(selectionStart.x, x);
+    const y1 = Math.min(selectionStart.y, y);
+    const x2 = Math.max(selectionStart.x, x);
+    const y2 = Math.max(selectionStart.y, y);
+    selectionRect.style.left = x1 + 'px';
+    selectionRect.style.top = y1 + 'px';
+    selectionRect.style.width = (x2 - x1) + 'px';
+    selectionRect.style.height = (y2 - y1) + 'px';
+  }
+
+  if (isDragging && currentDragId) {
+    const dom = elementRefs[currentDragId];
+    if (!dom) return;
+    const el = elements[currentDragId];
+    const dx = x - dragOffset.x - el.x;
+    const dy = y - dragOffset.y - el.y;
+    if (selectedIds.size > 1 && selectedIds.has(currentDragId)) {
+      selectedIds.forEach(sid => {
+        const sdom = elementRefs[sid];
+        const sel = elements[sid];
+        if (!sdom || !sel) return;
+        if (isElementLocked(sel)) return; // ロックは動かさない
+        sdom.style.left = (sel.x + dx) + 'px';
+        sdom.style.top  = (sel.y + dy) + 'px';
+      });
+    } else {
+      dom.style.left = (el.x + dx) + 'px';
+      dom.style.top  = (el.y + dy) + 'px';
+    }
+  }
+
+  if (resizeState) {
+    const { id, pos, startX, startY, origW, origH, origX, origY } = resizeState;
+    const dom = elementRefs[id];
+    if (!dom) return;
+    const dx = x - startX;
+    const dy = y - startY;
+    let nw = origW, nh = origH, nx = origX, ny = origY;
+    if (pos.includes('r')) nw = Math.max(30, origW + dx);
+    if (pos.includes('l')) { nw = Math.max(30, origW - dx); nx = origX + dx; }
+    if (pos.includes('b')) nh = Math.max(30, origH + dy);
+    if (pos.includes('t')) { nh = Math.max(30, origH - dy); ny = origY + dy; }
+    dom.style.width = nw + 'px';
+    dom.style.height = nh + 'px';
+    dom.style.left = nx + 'px';
+    dom.style.top = ny + 'px';
+    resizeState.newW = nw; resizeState.newH = nh;
+    resizeState.newX = nx; resizeState.newY = ny;
+  }
+});
+
+document.addEventListener('mouseup', async (e) => {
+  // 描画終了
+  if (isDrawing && currentStroke) {
+    isDrawing = false;
+    if (currentStroke.points.length > 1) {
+      const sid = currentStroke.id;
+      const payload = {
+        points: currentStroke.points,
+        color: currentStroke.color,
+        width: currentStroke.width,
+        authorUid: currentUser.uid,
+        author: currentUser.displayName || currentUser.email,
+        createdAt: Date.now()
+      };
+      drawnStrokeIds.add(sid);
+      await set(ref(db, `rooms/${roomId}/strokes/${sid}`), payload);
+    } else {
+      currentStrokeEl?.remove();
+    }
+    currentStroke = null;
+    currentStrokeEl = null;
+  }
+
+  if (isSelecting) {
+    const rect = canvas.getBoundingClientRect();
+    const x1 = Math.min(selectionStart.x, e.clientX - rect.left);
+    const y1 = Math.min(selectionStart.y, e.clientY - rect.top);
+    const x2 = Math.max(selectionStart.x, e.clientX - rect.left);
+    const y2 = Math.max(selectionStart.y, e.clientY - rect.top);
+    if (Math.abs(x2 - x1) > 5 && Math.abs(y2 - y1) > 5) {
+      if (!e.shiftKey && !e.metaKey && !e.ctrlKey) clearSelection();
+      Object.entries(elements).forEach(([id, el]) => {
+        const size = getElementSize(el);
+        const ex1 = el.x, ey1 = el.y, ex2 = el.x + size.w, ey2 = el.y + size.h;
+        if (!(ex2 < x1 || ex1 > x2 || ey2 < y1 || ey1 > y2)) {
+          selectedIds.add(id);
+          const dom = elementRefs[id];
+          if (dom) dom.classList.add('selected');
+        }
+      });
+      if (selectedIds.size > 0) showPropPanel();
+    }
+    isSelecting = false;
+    canvas.classList.remove('selecting');
+    selectionRect.classList.remove('show');
+  }
+
+  if (isDragging && currentDragId) {
+    const toUpdate = (selectedIds.size > 1 && selectedIds.has(currentDragId))
+      ? Array.from(selectedIds) : [currentDragId];
+    for (const sid of toUpdate) {
+      const dom = elementRefs[sid];
+      const sel = elements[sid];
+      if (dom && sel && !isElementLocked(sel)) {
+        dom.classList.remove('dragging');
+        await update(ref(db, `rooms/${roomId}/elements/${sid}`), {
+          x: parseInt(dom.style.left),
+          y: parseInt(dom.style.top)
+        }).catch(()=>{});
+      } else if (dom) {
+        dom.classList.remove('dragging');
+      }
+    }
+  }
+  if (resizeState) {
+    const { id, newW, newH, newX, newY } = resizeState;
+    const sel = elements[id];
+    if (newW && newH && !isElementLocked(sel)) {
+      await update(ref(db, `rooms/${roomId}/elements/${id}`), {
+        width: Math.round(newW),
+        height: Math.round(newH),
+        x: Math.round(newX),
+        y: Math.round(newY)
+      }).catch(()=>{});
+    }
+  }
+  isDragging = false;
+  currentDragId = null;
+  resizeState = null;
+});
+
 // ============ 要素DOM ============
 function createElementDOM(id, el) {
   const div = document.createElement('div');
@@ -1862,6 +2107,7 @@ function createElementDOM(id, el) {
     div.style.opacity = el.opacity;
     if (el.opacity < 0.3) div.classList.add('faded');
   }
+  if (el.locked) div.classList.add('locked');
 
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
   const hasAction = el.action && el.action.action;
@@ -1896,11 +2142,12 @@ function createElementDOM(id, el) {
       e.stopPropagation();
       const elData = elements[id];
       if (!elData) return;
-      if (e.shiftKey || e.metaKey || e.ctrlKey) {
-        toggleSelection(id);
+      if (e.shiftKey || e.metaKey || e.ctrlKey) { toggleSelection(id); return; }
+      selectElement(id, true);
+      if (isElementLocked(elData)) {
+        showHint('🔒 この要素はロックされています');
         return;
       }
-      selectElement(id, true);
       isDragging = true;
       currentDragId = id;
       const rect = canvas.getBoundingClientRect();
@@ -1913,7 +2160,6 @@ function createElementDOM(id, el) {
     const badge = document.createElement('div');
     badge.className = 'script-badge' + (hasAction ? ' has-action' : '');
     badge.textContent = hasAction ? '🎯' : '⚡';
-    badge.title = hasAction ? 'ビジュアルスクリプト有効' : 'コード有効';
     div.appendChild(badge);
   } else {
     switch (el.type) {
@@ -1979,6 +2225,10 @@ function createElementDOM(id, el) {
   del.textContent = '×';
   del.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (isElementLocked(el)) {
+      showHint('🔒 ロック中のため削除できません');
+      return;
+    }
     if (confirm('削除しますか？')) remove(ref(db, `rooms/${roomId}/elements/${id}`));
   });
   div.appendChild(del);
@@ -1988,13 +2238,33 @@ function createElementDOM(id, el) {
   }
   div.addEventListener('dblclick', onElementDblClick);
 
-  if (hasAction || hasCode) {
+  // クリック・ホバーのアクション
+  if (hasAction) {
+    let hoverTimer = null;
     div.addEventListener('click', (e) => {
-      if (e.target === div || e.target.classList.contains('script-frame')) {
-        runElementAction(id, 'click');
+      const el2 = elements[id];
+      if (!el2 || !el2.action) return;
+      // ダブルクリックと区別
+      if (e.detail === 1) {
+        setTimeout(() => {
+          if (!div._dblclicked) runElementAction(id, 'click');
+          div._dblclicked = false;
+        }, 250);
       }
     });
-    div.addEventListener('mouseenter', () => runElementAction(id, 'hover'));
+    div.addEventListener('dblclick', (e) => {
+      div._dblclicked = true;
+      const el2 = elements[id];
+      if (el2 && el2.action && el2.action.trigger === 'dblclick') {
+        runElementAction(id, 'dblclick');
+      }
+    });
+    div.addEventListener('mouseenter', () => {
+      const el2 = elements[id];
+      if (el2 && el2.action && el2.action.trigger === 'hover') {
+        runElementAction(id, 'hover');
+      }
+    });
   }
 
   return div;
@@ -2005,6 +2275,10 @@ function startDragFromBar(e, id) {
   e.preventDefault();
   const el = elements[id];
   if (!el) return;
+  if (isElementLocked(el)) {
+    showHint('🔒 この要素はロックされています');
+    return;
+  }
   if (e.shiftKey || e.metaKey || e.ctrlKey) { toggleSelection(id); return; }
   selectElement(id, true);
   isDragging = true;
@@ -2050,7 +2324,6 @@ function clearSelection() {
   selectedIds.clear();
 }
 
-// ============ ドラッグ ============
 function onElementMouseDown(e) {
   if (e.target.classList.contains('resize-handle')) return;
   if (e.target.classList.contains('delete-btn')) return;
@@ -2062,8 +2335,16 @@ function onElementMouseDown(e) {
   const id = div.dataset.id;
   const el = elements[id];
   if (!el) return;
+
   if (e.shiftKey || e.metaKey || e.ctrlKey) { toggleSelection(id); return; }
-  if (!selectedIds.has(id)) selectElement(id, true);
+
+  selectElement(id, true);
+
+  if (isElementLocked(el)) {
+    showHint('🔒 この要素はロックされています');
+    return;
+  }
+
   isDragging = true;
   currentDragId = id;
   const rect = canvas.getBoundingClientRect();
@@ -2071,174 +2352,14 @@ function onElementMouseDown(e) {
   dragOffset.y = (e.clientY - rect.top) - el.y;
 }
 
-canvas.addEventListener('mousemove', e => {
-  if (!currentUser) return;
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-
-  if (settings.showCoordDisplay) {
-    coordDisplay.textContent = `X: ${Math.round(x)}  Y: ${Math.round(y)}`;
-  }
-
-  if (myCursorRef) {
-    const now = Date.now();
-    if (!window._lastCursorUpdate || now - window._lastCursorUpdate > 50) {
-      window._lastCursorUpdate = now;
-      const name = currentUser.displayName || currentUser.email.split('@')[0];
-      const color = colorForUid(currentUser.uid);
-      set(myCursorRef, { x, y, name, color, timestamp: now }).catch(()=>{});
-      const bubblesRef = ref(db, `rooms/${roomId}/bubbles/${currentUser.uid}`);
-      update(bubblesRef, { x, y, name, color }).catch(()=>{});
-      myBubble.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
-    }
-  }
-
-  if (isSelecting) {
-    const x1 = Math.min(selectionStart.x, x);
-    const y1 = Math.min(selectionStart.y, y);
-    const x2 = Math.max(selectionStart.x, x);
-    const y2 = Math.max(selectionStart.y, y);
-    selectionRect.style.left = x1 + 'px';
-    selectionRect.style.top = y1 + 'px';
-    selectionRect.style.width = (x2 - x1) + 'px';
-    selectionRect.style.height = (y2 - y1) + 'px';
-  }
-
-  if (isDragging && currentDragId) {
-    const dom = elementRefs[currentDragId];
-    if (!dom) return;
-    const el = elements[currentDragId];
-    const dx = x - dragOffset.x - el.x;
-    const dy = y - dragOffset.y - el.y;
-    if (selectedIds.size > 1 && selectedIds.has(currentDragId)) {
-      selectedIds.forEach(sid => {
-        const sdom = elementRefs[sid];
-        const sel = elements[sid];
-        if (!sdom || !sel) return;
-        sdom.style.left = (sel.x + dx) + 'px';
-        sdom.style.top  = (sel.y + dy) + 'px';
-      });
-    } else {
-      dom.style.left = (el.x + dx) + 'px';
-      dom.style.top  = (el.y + dy) + 'px';
-    }
-  }
-
-  if (resizeState) {
-    const { id, pos, startX, startY, origW, origH, origX, origY } = resizeState;
-    const dom = elementRefs[id];
-    if (!dom) return;
-    const dx = x - startX;
-    const dy = y - startY;
-    let nw = origW, nh = origH, nx = origX, ny = origY;
-    if (pos.includes('r')) nw = Math.max(30, origW + dx);
-    if (pos.includes('l')) { nw = Math.max(30, origW - dx); nx = origX + dx; }
-    if (pos.includes('b')) nh = Math.max(30, origH + dy);
-    if (pos.includes('t')) { nh = Math.max(30, origH - dy); ny = origY + dy; }
-    dom.style.width = nw + 'px';
-    dom.style.height = nh + 'px';
-    dom.style.left = nx + 'px';
-    dom.style.top = ny + 'px';
-    resizeState.newW = nw; resizeState.newH = nh;
-    resizeState.newX = nx; resizeState.newY = ny;
-  }
-});
-
-document.addEventListener('mouseup', (e) => {
-  if (isSelecting) {
-    const rect = canvas.getBoundingClientRect();
-    const x1 = Math.min(selectionStart.x, e.clientX - rect.left);
-    const y1 = Math.min(selectionStart.y, e.clientY - rect.top);
-    const x2 = Math.max(selectionStart.x, e.clientX - rect.left);
-    const y2 = Math.max(selectionStart.y, e.clientY - rect.top);
-    if (Math.abs(x2 - x1) > 5 && Math.abs(y2 - y1) > 5) {
-      if (!e.shiftKey && !e.metaKey && !e.ctrlKey) clearSelection();
-      Object.entries(elements).forEach(([id, el]) => {
-        const size = getElementSize(el);
-        const ex1 = el.x, ey1 = el.y, ex2 = el.x + size.w, ey2 = el.y + size.h;
-        if (!(ex2 < x1 || ex1 > x2 || ey2 < y1 || ey1 > y2)) {
-          selectedIds.add(id);
-          const dom = elementRefs[id];
-          if (dom) dom.classList.add('selected');
-        }
-      });
-      if (selectedIds.size > 0) showPropPanel();
-    }
-    isSelecting = false;
-    canvas.classList.remove('selecting');
-    selectionRect.classList.remove('show');
-  }
-  if (isDragging && currentDragId) {
-    const toUpdate = (selectedIds.size > 1 && selectedIds.has(currentDragId))
-      ? Array.from(selectedIds) : [currentDragId];
-    toUpdate.forEach(sid => {
-      const dom = elementRefs[sid];
-      if (dom) {
-        dom.classList.remove('dragging');
-        update(ref(db, `rooms/${roomId}/elements/${sid}`), {
-          x: parseInt(dom.style.left),
-          y: parseInt(dom.style.top)
-        }).catch(()=>{});
-      }
-    });
-  }
-  if (resizeState) {
-    const { id, newW, newH, newX, newY } = resizeState;
-    if (newW && newH) {
-      update(ref(db, `rooms/${roomId}/elements/${id}`), {
-        width: Math.round(newW),
-        height: Math.round(newH),
-        x: Math.round(newX),
-        y: Math.round(newY)
-      }).catch(()=>{});
-    }
-  }
-  isDragging = false;
-  currentDragId = null;
-  resizeState = null;
-});
-
-canvas.addEventListener('mousedown', (e) => {
-  if (e.target === canvas || e.target.id === 'selectionRect') {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // 座標トースト (設定でON/OFF)
-    if (settings.showCoordToast) {
-      const rx = Math.round(x), ry = Math.round(y);
-      coordToast.textContent = `📍 X: ${rx}, Y: ${ry}`;
-      coordToast.style.left = e.clientX + 'px';
-      coordToast.style.top = e.clientY + 'px';
-      coordToast.classList.add('show');
-      clearTimeout(window._coordToastTimer);
-      window._coordToastTimer = setTimeout(() => coordToast.classList.remove('show'), 1200);
-    }
-    // 座標ログ (設定でON/OFF)
-    if (settings.logCoord) {
-      addLog('coord', `🖱 クリック座標: (${Math.round(x)}, ${Math.round(y)})`);
-    }
-
-    if (!e.shiftKey && !e.metaKey && !e.ctrlKey) {
-      clearSelection();
-      propPanel.classList.remove('show');
-    }
-    isSelecting = true;
-    selectionStart = { x, y };
-    selectionRect.style.left = x + 'px';
-    selectionRect.style.top = y + 'px';
-    selectionRect.style.width = '0px';
-    selectionRect.style.height = '0px';
-    selectionRect.classList.add('show');
-    canvas.classList.add('selecting');
-    hideSlashMenu();
-  }
-});
-
 function startResize(e, id, pos) {
   e.stopPropagation();
   e.preventDefault();
+  const el = elements[id];
+  if (isElementLocked(el)) {
+    showHint('🔒 ロック中のためサイズ変更不可');
+    return;
+  }
   const dom = elementRefs[id];
   if (!dom) return;
   const rect = canvas.getBoundingClientRect();
@@ -2258,6 +2379,10 @@ function onElementDblClick(e) {
   const id = div.dataset.id;
   const el = elements[id];
   if (!el) return;
+  if (isElementLocked(el)) {
+    showHint('🔒 ロック中のため編集不可');
+    return;
+  }
   if (div.classList.contains('has-script')) { openCodeEditor(id); return; }
   if (!['sticky','text','comment'].includes(el.type)) return;
   if (div.contentEditable === 'true') return;
@@ -2330,11 +2455,13 @@ function showPropPanel() {
   if (!el) { propPanel.classList.remove('show'); return; }
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
   const hasAction = el.action && el.action.action;
+  const locked = isElementLocked(el);
   const isTextType = ['sticky','text','comment'].includes(el.type);
   const isShapeType = ['rect','circle','triangle','arrow'].includes(el.type);
   const isSticky = el.type === 'sticky';
   const isStamp = el.type === 'stamp';
 
+  // 名前
   const gName = document.createElement('div');
   gName.className = 'pp-group';
   gName.innerHTML = `<label>名前</label>`;
@@ -2343,14 +2470,18 @@ function showPropPanel() {
   nameInput.className = 'name-input';
   nameInput.placeholder = '例: 送信ボタン';
   nameInput.value = el.name || '';
-  nameInput.addEventListener('change', () => {
-    const v = nameInput.value.trim();
-    if (v) update(ref(db, `rooms/${roomId}/elements/${id}`), { name: v });
-    else remove(ref(db, `rooms/${roomId}/elements/${id}/name`));
-  });
+  nameInput.disabled = locked;
+  if (!locked) {
+    nameInput.addEventListener('change', () => {
+      const v = nameInput.value.trim();
+      if (v) update(ref(db, `rooms/${roomId}/elements/${id}`), { name: v });
+      else remove(ref(db, `rooms/${roomId}/elements/${id}/name`));
+    });
+  }
   gName.appendChild(nameInput);
   propPanel.appendChild(gName);
 
+  // 位置
   const gPos = document.createElement('div');
   gPos.className = 'pp-group';
   const posInfo = document.createElement('div');
@@ -2365,109 +2496,146 @@ function showPropPanel() {
   }
   propPanel.appendChild(gPos);
 
-  const gAction = document.createElement('div');
-  gAction.className = 'pp-group';
-  const actBtn = document.createElement('button');
-  actBtn.className = 'action-btn' + (hasAction ? ' has-action' : '');
-  actBtn.textContent = hasAction ? '🎯 動作編集' : '🎯 動作設定';
-  actBtn.addEventListener('click', () => openVisualScript(id));
-  gAction.appendChild(actBtn);
-  propPanel.appendChild(gAction);
-
-  const gScript = document.createElement('div');
-  gScript.className = 'pp-group';
-  const codeBtn = document.createElement('button');
-  codeBtn.className = 'code-btn' + (hasCode ? ' has-code' : '');
-  codeBtn.textContent = hasCode ? '⚡ コード編集' : '⚡ コード追加';
-  codeBtn.addEventListener('click', () => openCodeEditor(id));
-  gScript.appendChild(codeBtn);
-  propPanel.appendChild(gScript);
-
-  if (!hasCode && (isTextType || isShapeType || isSticky)) {
-    const g = document.createElement('div');
-    g.className = 'pp-group';
-    g.innerHTML = `<label>色</label>`;
-    const input = document.createElement('input');
-    input.type = 'color';
-    input.value = rgbToHex((isSticky || isShapeType) ? (el.color || '#0d99ff') : (el.color || '#222222'));
-    input.addEventListener('input', () => {
-      update(ref(db, `rooms/${roomId}/elements/${id}`), { color: input.value });
+  // ロック
+  const gLock = document.createElement('div');
+  gLock.className = 'pp-group';
+  const lockBtn = document.createElement('button');
+  lockBtn.className = 'lock-btn' + (el.locked ? '' : ' unlocked');
+  const isOwner = el.authorUid === currentUser.uid || isAdmin;
+  if (!isOwner) {
+    lockBtn.classList.add('disabled');
+    lockBtn.textContent = el.locked ? '🔒 ロック中' : '🔓 自由';
+    lockBtn.disabled = true;
+    lockBtn.title = '他のユーザーの要素はロック変更できません';
+  } else {
+    lockBtn.textContent = el.locked ? '🔒 ロック中' : '🔓 ロックする';
+    lockBtn.title = el.locked ? 'クリックでロック解除' : 'クリックでロック';
+    lockBtn.addEventListener('click', () => {
+      update(ref(db, `rooms/${roomId}/elements/${id}`), { locked: !el.locked });
     });
-    g.appendChild(input);
-    propPanel.appendChild(g);
+  }
+  gLock.appendChild(lockBtn);
+  propPanel.appendChild(gLock);
+
+  if (locked) {
+    const gLocked = document.createElement('div');
+    gLocked.className = 'pp-group';
+    const lockedMsg = document.createElement('div');
+    lockedMsg.className = 'pos-info';
+    lockedMsg.style.color = '#f39c12';
+    lockedMsg.textContent = '🔒 ロック中（動作は実行可能）';
+    gLocked.appendChild(lockedMsg);
+    propPanel.appendChild(gLocked);
   }
 
-  if (!hasCode && (isTextType || isStamp)) {
-    const g = document.createElement('div');
-    g.className = 'pp-group';
-    g.innerHTML = `<label>サイズ</label>`;
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.min = 8; input.max = 200;
-    input.value = el.fontSize || (isStamp ? 60 : 14);
-    input.addEventListener('input', () => {
-      update(ref(db, `rooms/${roomId}/elements/${id}`), { fontSize: parseInt(input.value) });
+  if (!locked) {
+    // 動作設定
+    const gAction = document.createElement('div');
+    gAction.className = 'pp-group';
+    const actBtn = document.createElement('button');
+    actBtn.className = 'action-btn' + (hasAction ? ' has-action' : '');
+    actBtn.textContent = hasAction ? '🎯 動作編集' : '🎯 動作設定';
+    actBtn.addEventListener('click', () => openVisualScript(id));
+    gAction.appendChild(actBtn);
+    propPanel.appendChild(gAction);
+
+    // コード
+    const gScript = document.createElement('div');
+    gScript.className = 'pp-group';
+    const codeBtn = document.createElement('button');
+    codeBtn.className = 'code-btn' + (hasCode ? ' has-code' : '');
+    codeBtn.textContent = hasCode ? '⚡ コード編集' : '⚡ コード追加';
+    codeBtn.addEventListener('click', () => openCodeEditor(id));
+    gScript.appendChild(codeBtn);
+    propPanel.appendChild(gScript);
+
+    // 色
+    if (!hasCode && (isTextType || isShapeType || isSticky)) {
+      const g = document.createElement('div');
+      g.className = 'pp-group';
+      g.innerHTML = `<label>色</label>`;
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.value = rgbToHex((isSticky || isShapeType) ? (el.color || '#0d99ff') : (el.color || '#222222'));
+      input.addEventListener('input', () => {
+        update(ref(db, `rooms/${roomId}/elements/${id}`), { color: input.value });
+      });
+      g.appendChild(input);
+      propPanel.appendChild(g);
+    }
+
+    // 文字サイズ
+    if (!hasCode && (isTextType || isStamp)) {
+      const g = document.createElement('div');
+      g.className = 'pp-group';
+      g.innerHTML = `<label>サイズ</label>`;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = 8; input.max = 200;
+      input.value = el.fontSize || (isStamp ? 60 : 14);
+      input.addEventListener('input', () => {
+        update(ref(db, `rooms/${roomId}/elements/${id}`), { fontSize: parseInt(input.value) });
+      });
+      g.appendChild(input);
+      propPanel.appendChild(g);
+    }
+
+    if (!hasCode && isTextType) {
+      const g = document.createElement('div');
+      g.className = 'pp-group';
+      const boldBtn = document.createElement('button');
+      boldBtn.textContent = 'B';
+      boldBtn.style.fontWeight = 'bold';
+      if (el.bold) boldBtn.classList.add('active');
+      boldBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { bold: !el.bold }));
+      const italicBtn = document.createElement('button');
+      italicBtn.textContent = 'I';
+      italicBtn.style.fontStyle = 'italic';
+      if (el.italic) italicBtn.classList.add('active');
+      italicBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { italic: !el.italic }));
+      g.appendChild(boldBtn);
+      g.appendChild(italicBtn);
+      propPanel.appendChild(g);
+    }
+
+    const gVis = document.createElement('div');
+    gVis.className = 'pp-group';
+    const visBtn = document.createElement('button');
+    visBtn.textContent = el.visible === false ? '👁 表示' : '👁 隠す';
+    visBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { visible: el.visible === false ? true : false }));
+    gVis.appendChild(visBtn);
+    propPanel.appendChild(gVis);
+
+    const gLayer = document.createElement('div');
+    gLayer.className = 'pp-group';
+    const upBtn = document.createElement('button');
+    upBtn.textContent = '⬆';
+    upBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { z: Date.now() }));
+    const downBtn = document.createElement('button');
+    downBtn.textContent = '⬇';
+    downBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { z: 1 }));
+    gLayer.appendChild(upBtn);
+    gLayer.appendChild(downBtn);
+    propPanel.appendChild(gLayer);
+
+    const gDup = document.createElement('div');
+    gDup.className = 'pp-group';
+    const dupBtn = document.createElement('button');
+    dupBtn.textContent = '⧉';
+    dupBtn.addEventListener('click', async () => {
+      const newId = newElemId();
+      const copy = JSON.parse(JSON.stringify(el));
+      copy.x = (el.x || 0) + 20;
+      copy.y = (el.y || 0) + 20;
+      delete copy.groupId;
+      copy.authorUid = currentUser.uid;
+      copy.author = currentUser.displayName || currentUser.email;
+      copy.locked = false;
+      await set(ref(db, `rooms/${roomId}/elements/${newId}`), copy);
     });
-    g.appendChild(input);
-    propPanel.appendChild(g);
+    gDup.appendChild(dupBtn);
+    propPanel.appendChild(gDup);
   }
-
-  if (!hasCode && isTextType) {
-    const g = document.createElement('div');
-    g.className = 'pp-group';
-    const boldBtn = document.createElement('button');
-    boldBtn.textContent = 'B';
-    boldBtn.style.fontWeight = 'bold';
-    if (el.bold) boldBtn.classList.add('active');
-    boldBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { bold: !el.bold }));
-    const italicBtn = document.createElement('button');
-    italicBtn.textContent = 'I';
-    italicBtn.style.fontStyle = 'italic';
-    if (el.italic) italicBtn.classList.add('active');
-    italicBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { italic: !el.italic }));
-    g.appendChild(boldBtn);
-    g.appendChild(italicBtn);
-    propPanel.appendChild(g);
-  }
-
-  const gVis = document.createElement('div');
-  gVis.className = 'pp-group';
-  const visBtn = document.createElement('button');
-  visBtn.textContent = el.visible === false ? '👁 表示' : '👁 隠す';
-  visBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { visible: el.visible === false ? true : false }));
-  gVis.appendChild(visBtn);
-  const opBtn = document.createElement('button');
-  opBtn.textContent = el.opacity < 1 ? '🔆 不透明' : '💧 半透明';
-  opBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { opacity: el.opacity < 1 ? 1 : 0.3 }));
-  gVis.appendChild(opBtn);
-  propPanel.appendChild(gVis);
-
-  const gLayer = document.createElement('div');
-  gLayer.className = 'pp-group';
-  const upBtn = document.createElement('button');
-  upBtn.textContent = '⬆';
-  upBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { z: Date.now() }));
-  const downBtn = document.createElement('button');
-  downBtn.textContent = '⬇';
-  downBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { z: 1 }));
-  gLayer.appendChild(upBtn);
-  gLayer.appendChild(downBtn);
-  propPanel.appendChild(gLayer);
-
-  const gDup = document.createElement('div');
-  gDup.className = 'pp-group';
-  const dupBtn = document.createElement('button');
-  dupBtn.textContent = '⧉';
-  dupBtn.addEventListener('click', async () => {
-    const newId = newElemId();
-    const copy = JSON.parse(JSON.stringify(el));
-    copy.x = (el.x || 0) + 20;
-    copy.y = (el.y || 0) + 20;
-    delete copy.groupId;
-    await set(ref(db, `rooms/${roomId}/elements/${newId}`), copy);
-  });
-  gDup.appendChild(dupBtn);
-  propPanel.appendChild(gDup);
 }
 
 function showMultiSelectPanel() {
@@ -2495,7 +2663,11 @@ function showMultiSelectPanel() {
   delBtn.style.borderColor = '#c0392b';
   delBtn.addEventListener('click', async () => {
     if (!confirm(`${ids.length}個を削除しますか？`)) return;
-    for (const id of ids) await remove(ref(db, `rooms/${roomId}/elements/${id}`));
+    for (const id of ids) {
+      const el = elements[id];
+      if (el && isElementLocked(el)) continue;
+      await remove(ref(db, `rooms/${roomId}/elements/${id}`));
+    }
     clearSelection();
   });
   gGroup.appendChild(delBtn);
@@ -2527,7 +2699,7 @@ async function alignElements(mode) {
   });
   for (const id of ids) {
     const el = elements[id];
-    if (!el) continue;
+    if (!el || isElementLocked(el)) continue;
     const size = getElementSize(el);
     let newX = el.x, newY = el.y;
     if (mode === 'left') newX = minX;
@@ -2561,7 +2733,6 @@ function openGroupModal(ids) {
     item.innerHTML = `
       <span class="gm-type">${TYPE_LABEL[el.type] || el.type}</span>
       <span class="gm-name">${escapeHtml(el.name || '(名前なし)')}</span>
-      <span style="color:#666;font-size:11px;">(${Math.round(el.x)},${Math.round(el.y)})</span>
     `;
     list.appendChild(item);
   });
@@ -2584,7 +2755,7 @@ document.getElementById('gmSave').addEventListener('click', async () => {
     createdAt: Date.now()
   });
   groupModal.classList.remove('show');
-  if (settings.logEvent) addLog('event', `📦 グループ「${name}」を作成（${ids.length}個）`);
+  if (settings.logEvent) addLog('event', `📦 グループ「${name}」作成（${ids.length}個）`);
   showHint(`📦 グループ「${name}」`);
   clearSelection();
   propPanel.classList.remove('show');
@@ -2626,9 +2797,10 @@ function openVisualScript(id) {
 function updateVisualRows() {
   const action = document.getElementById('vsAction').value;
   document.getElementById('vsCoordRow').style.display = action === 'move' ? 'flex' : 'none';
-  document.getElementById('vsColorRow').style.display = action === 'color' ? 'flex' : 'none';
+  document.getElementById('vsColorRow').style.display = (action === 'color' || action === 'selfColor') ? 'flex' : 'none';
   document.getElementById('vsTextRow').style.display = action === 'notify' ? 'flex' : 'none';
-  document.getElementById('vsTarget').parentElement.style.display = action === 'notify' ? 'none' : 'flex';
+  const needsTarget = !['notify', 'selfColor', 'selfToggle'].includes(action);
+  document.getElementById('vsTargetRow').style.display = needsTarget ? 'flex' : 'none';
 }
 
 function updateVisualPreview() {
@@ -2636,16 +2808,18 @@ function updateVisualPreview() {
   const action = document.getElementById('vsAction').value;
   const target = document.getElementById('vsTarget');
   const targetLabel = target.options[target.selectedIndex]?.textContent || '（対象なし）';
-  const triggerText = { click: 'クリック時', hover: 'マウスオーバー時', longpress: '長押し時' }[trigger];
+  const triggerText = { click: 'クリック時', hover: 'マウスオーバー時', dblclick: 'ダブルクリック時' }[trigger];
   const actionText = {
     show: '対象を表示', hide: '対象を隠す', toggle: '表示/非表示を切替',
     appear: 'フェードイン', disappear: 'フェードアウト',
-    move: '対象を移動', color: '色を変更', notify: 'メッセージ表示'
+    move: '対象を移動', color: '色を変更', notify: 'メッセージ表示',
+    selfColor: '自分自身の色変更', selfToggle: '自分自身の表示切替'
   }[action];
   let preview = `🎯 ${triggerText} → ${actionText}`;
   if (action === 'notify') preview += `: "${document.getElementById('vsText').value}"`;
   else if (action === 'move') preview += ` (${document.getElementById('vsX').value}, ${document.getElementById('vsY').value})`;
-  else preview += ` → ${targetLabel}`;
+  else if (action === 'selfColor') preview += ` (${document.getElementById('vsColor').value})`;
+  else if (action !== 'selfToggle') preview += ` → ${targetLabel}`;
   document.getElementById('vsPreview').textContent = preview;
 }
 
@@ -2671,6 +2845,12 @@ document.getElementById('vsSave').addEventListener('click', async () => {
   await update(ref(db, `rooms/${roomId}/elements/${editingActionId}`), { action });
   visualModal.classList.remove('show');
   showHint('🎯 動作を保存');
+  // バッジ更新のため再作成
+  if (elementRefs[editingActionId]) {
+    elementRefs[editingActionId].remove();
+    elementRefs[editingActionId] = createElementDOM(editingActionId, elements[editingActionId]);
+    canvas.appendChild(elementRefs[editingActionId]);
+  }
 });
 
 document.getElementById('vsRemove').addEventListener('click', async () => {
@@ -2678,6 +2858,11 @@ document.getElementById('vsRemove').addEventListener('click', async () => {
   if (!confirm('動作設定を削除しますか？')) return;
   await remove(ref(db, `rooms/${roomId}/elements/${editingActionId}/action`));
   visualModal.classList.remove('show');
+  if (elementRefs[editingActionId]) {
+    elementRefs[editingActionId].remove();
+    elementRefs[editingActionId] = createElementDOM(editingActionId, elements[editingActionId]);
+    canvas.appendChild(elementRefs[editingActionId]);
+  }
 });
 
 async function runElementAction(id, triggerType) {
@@ -2687,8 +2872,21 @@ async function runElementAction(id, triggerType) {
   const a = el.action;
   if (a.action === 'notify') {
     showHint('📢 ' + (a.text || 'メッセージ'));
+    addLog('event', `📢 ${a.text}`);
     return;
   }
+
+  // 自分自身へのアクション
+  if (a.action === 'selfColor') {
+    await update(ref(db, `rooms/${roomId}/elements/${id}`), { color: a.color });
+    return;
+  }
+  if (a.action === 'selfToggle') {
+    await update(ref(db, `rooms/${roomId}/elements/${id}`), { visible: el.visible === false ? true : false });
+    return;
+  }
+
+  // 対象解決
   let targetIds = [];
   if (a.target && a.target.startsWith('group:')) {
     const gid = a.target.slice(6);
@@ -2696,18 +2894,36 @@ async function runElementAction(id, triggerType) {
     if (g && g.members) targetIds = [...g.members];
   } else if (a.target) {
     targetIds = [a.target];
+  } else {
+    // 対象なし = 自分自身へのアクション
+    targetIds = [id];
   }
+
   for (const tid of targetIds) {
     const target = elements[tid];
     if (!target) continue;
     switch (a.action) {
-      case 'show': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 }); break;
-      case 'hide': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: false }); break;
-      case 'toggle': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: target.visible === false ? true : false }); break;
-      case 'appear': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 }); break;
-      case 'disappear': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { opacity: 0.05 }); break;
-      case 'move': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { x: a.x, y: a.y }); break;
-      case 'color': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { color: a.color }); break;
+      case 'show':
+        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 });
+        break;
+      case 'hide':
+        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: false });
+        break;
+      case 'toggle':
+        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: target.visible === false ? true : false });
+        break;
+      case 'appear':
+        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 });
+        break;
+      case 'disappear':
+        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { opacity: 0.05 });
+        break;
+      case 'move':
+        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { x: a.x, y: a.y });
+        break;
+      case 'color':
+        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { color: a.color });
+        break;
     }
   }
 }
@@ -2750,7 +2966,7 @@ document.getElementById('codeSave').addEventListener('click', async () => {
     height: elements[editingCodeId].height || 160
   });
   closeCodeEditor();
-  showHint('⚡ スクリプトを保存');
+  showHint('⚡ スクリプト保存');
 });
 
 document.getElementById('codeRemove').addEventListener('click', async () => {
@@ -2778,6 +2994,126 @@ document.querySelectorAll('.code-foot .examples button').forEach(btn => {
   });
 });
 
+function buildIframeDoc(code, elementId) {
+  const bridge = `
+    <script>
+      (function(){
+        const send = (type, msg) => {
+          try { parent.postMessage({ __script: true, elementId: '${elementId}', type, msg: String(msg) }, '*'); } catch(e){}
+        };
+        ['log','warn','error','info'].forEach(k => {
+          const orig = console[k];
+          console[k] = (...args) => {
+            try { orig.apply(console, args); } catch(e){}
+            send(k, args.map(a => {
+              try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
+              catch(e){ return '[object]'; }
+            }).join(' '));
+          };
+        });
+        window.addEventListener('error', e => send('error', e.message + ' @line ' + e.lineno));
+      })();
+    <\/script>
+  `;
+  const wrappedJS = `
+    try {
+      ${code.js || ''}
+    } catch (err) {
+      console.error('Script error:', err.message);
+    }
+  `;
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8">${bridge}
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; }
+  body { font-family: -apple-system, sans-serif; }
+  ${code.css || ''}
+</style>
+</head>
+<body>
+${code.html || ''}
+<script>(function(){ ${wrappedJS} })();<\/script>
+</body></html>`;
+}
+
+function applyTextStyle(dom, el) {
+  if (el.fontSize) dom.style.fontSize = el.fontSize + 'px';
+  if (el.color) dom.style.color = el.color;
+  if (el.bold) dom.style.fontWeight = 'bold';
+  if (el.italic) dom.style.fontStyle = 'italic';
+}
+
+function updateElementDOM(id, el) {
+  const dom = elementRefs[id];
+  if (!dom) return;
+  dom.style.left = el.x + 'px';
+  dom.style.top = el.y + 'px';
+  if (el.width)  dom.style.width  = el.width + 'px';
+  if (el.height) dom.style.height = el.height + 'px';
+  dom.style.zIndex = el.z || '';
+
+  // 表示/非表示
+  if (el.visible === false) dom.classList.add('hidden-element');
+  else dom.classList.remove('hidden-element');
+  // 透明度
+  if (el.opacity !== undefined) {
+    dom.style.opacity = el.opacity;
+    dom.classList.toggle('faded', el.opacity < 0.3);
+  }
+  // ロック状態
+  dom.classList.toggle('locked', !!el.locked);
+
+  const nameLabel = dom.querySelector('.name-label');
+  if (nameLabel) {
+    const name = el.name || '';
+    nameLabel.textContent = name || TYPE_LABEL[el.type] || el.type;
+    if (name) dom.classList.add('has-name');
+    else dom.classList.remove('has-name');
+  }
+
+  const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
+  const hadCode = dom.classList.contains('has-script');
+
+  if (hasCode !== hadCode) {
+    const newDom = createElementDOM(id, el);
+    dom.replaceWith(newDom);
+    elementRefs[id] = newDom;
+    return;
+  }
+
+  if (hasCode) {
+    const frame = dom.querySelector('.script-frame');
+    if (frame) {
+      const newDoc = buildIframeDoc(el.code, id);
+      if (frame.srcdoc !== newDoc) frame.srcdoc = newDoc;
+    }
+    // ドラッグバー更新
+    const dragBar = dom.querySelector('.drag-bar');
+    if (dragBar) dragBar.textContent = '⠿ ' + (el.name || 'スクリプト') + ' — ドラッグで移動';
+    return;
+  }
+
+  if ((el.type === 'sticky' || el.type === 'text' || el.type === 'comment') &&
+      dom.textContent !== el.content && !dom.isContentEditable) {
+    dom.textContent = el.content || '';
+  }
+  if (el.color) {
+    if (el.type === 'rect' || el.type === 'circle' || el.type === 'sticky') {
+      dom.style.background = el.color;
+    } else if (el.type === 'triangle') {
+      dom.style.borderBottomColor = el.color;
+    } else if (el.type === 'arrow') {
+      dom.style.background = el.color;
+      dom.style.color = el.color;
+    } else if (el.type === 'text' || el.type === 'comment') {
+      dom.style.color = el.color;
+    }
+  }
+  if (el.fontSize) dom.style.fontSize = el.fontSize + 'px';
+  if (el.bold !== undefined) dom.style.fontWeight = el.bold ? 'bold' : 'normal';
+  if (el.italic !== undefined) dom.style.fontStyle = el.italic ? 'italic' : 'normal';
+}
+
 // ============ 要素追加 ============
 async function addElement(type, opts = {}) {
   if (!roomId) return;
@@ -2787,7 +3123,8 @@ async function addElement(type, opts = {}) {
   const y = opts.y ?? cy;
   const base = {
     type, x: Math.round(x), y: Math.round(y),
-    author: currentUser.displayName || currentUser.email
+    author: currentUser.displayName || currentUser.email,
+    authorUid: currentUser.uid
   };
   let payload;
   let autoName = '';
@@ -2851,23 +3188,6 @@ async function addElement(type, opts = {}) {
   const label = payload.name || TYPE_LABEL[payload.type] || payload.type;
   if (settings.logEvent) addLog('event', `✨ 「${label}」を (${payload.x}, ${payload.y}) に追加`);
   showHint(`✨ ${label} を追加`);
-  if (settings.sfx) playBeep();
-}
-
-// ============ 効果音 ============
-function playBeep() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 800;
-    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.1);
-  } catch(e) {}
 }
 
 // ============ スラッシュメニュー ============
@@ -2929,6 +3249,7 @@ async function executeCommand(id) {
       if (confirm('全要素を削除しますか？')) {
         remove(ref(db, `rooms/${roomId}/elements`));
         remove(ref(db, `rooms/${roomId}/groups`));
+        remove(ref(db, `rooms/${roomId}/strokes`));
       }
       break;
   }
@@ -2972,14 +3293,12 @@ function addLog(type, msg) {
     }, 5000);
   }
 }
-
 function renderLogs() {
   logBody.innerHTML = scriptLogLines.map(l => `
     <div class="log-line ${l.type}">[${l.type}] ${escapeHtml(l.msg)}</div>
   `).join('');
   logBody.scrollTop = logBody.scrollHeight;
 }
-
 document.getElementById('logClear').addEventListener('click', () => {
   scriptLogLines = [];
   renderLogs();
@@ -3032,11 +3351,23 @@ document.addEventListener('keydown', (e) => {
     }
   }
   if (inEditable) return;
+
+  // ツール切替
+  if (!e.metaKey && !e.ctrlKey) {
+    if (e.key === 'v' || e.key === 'V') { setTool('select'); return; }
+    if (e.key === 'p' || e.key === 'P') { setTool('pen'); return; }
+    if (e.key === 'e' || e.key === 'E') { setTool('eraser'); return; }
+  }
+
   if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) {
     e.preventDefault();
     const ids = Array.from(selectedIds);
     if (!confirm(ids.length > 1 ? `${ids.length}個を削除？` : '削除しますか？')) return;
-    ids.forEach(id => remove(ref(db, `rooms/${roomId}/elements/${id}`)));
+    ids.forEach(id => {
+      const el = elements[id];
+      if (el && isElementLocked(el)) return;
+      remove(ref(db, `rooms/${roomId}/elements/${id}`));
+    });
     clearSelection();
     propPanel.classList.remove('show');
     return;
@@ -3148,7 +3479,7 @@ document.addEventListener('paste', async (e) => {
         } else {
           await pasteImage(dataUrl);
         }
-        showPasteHint('📋 画像を貼り付けました');
+        showPasteHint('📋 画像を貼り付け');
       } catch (err) { showPasteHint('❌ 貼り付け失敗'); }
       return;
     }
@@ -3188,11 +3519,12 @@ async function pasteImage(dataUrl) {
     type: 'image',
     x: Math.round(cx), y: Math.round(cy),
     content: dataUrl,
-    author: currentUser.displayName || currentUser.email
+    author: currentUser.displayName || currentUser.email,
+    authorUid: currentUser.uid
   };
   if (name && name.trim()) payload.name = name.trim();
   await set(ref(db, `rooms/${roomId}/elements/${newId}`), payload);
-  if (settings.logEvent) addLog('event', `🖼 画像を (${payload.x}, ${payload.y}) に追加`);
+  if (settings.logEvent) addLog('event', `🖼 画像を追加`);
 }
 
 // ============ ユーザー ============
@@ -3209,7 +3541,7 @@ function renderUsers(cursorsData) {
       dot.style.background = cur.color || colorForUid(uid);
       dot.textContent = (cur.name || '?').slice(-2);
     }
-    dot.title = `${cur.name || uid}${(isAdminEmail(info.email) || isAdminUid(uid)) ? ' 👑' : ''}`;
+    dot.title = `${cur.name || uid}`;
     usersEl.appendChild(dot);
   });
 }
@@ -3273,6 +3605,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   if (!confirm('全要素を削除しますか？')) return;
   remove(ref(db, `rooms/${roomId}/elements`));
   remove(ref(db, `rooms/${roomId}/groups`));
+  remove(ref(db, `rooms/${roomId}/strokes`));
 });
 document.getElementById('joinBtn').addEventListener('click', () => {
   const id = document.getElementById('roomInput').value.trim() || 'default';
@@ -3344,8 +3677,9 @@ function renderAdminPanel() {
 
 // ============ 初期化 ============
 applySettings();
+setTool('select');
 console.log('%c🎨 FigmaDG', 'color:#0d99ff;font-size:20px;font-weight:bold');
-console.log('⚙️ 設定からBGM・ログ・表示などをカスタマイズできます');
+console.log('V 選択 | P 鉛筆 | E 消しゴム | / コマンド | Space 吹き出し');
 </script>
 </body>
 </html>
