@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
- <link id="faviconLink" rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADNklEQVR4AbSXXUgUURTH/3faPtR2SxFT1xJBkQhCogiJEvPBECqhngp96AOCPqnopXxIxAoKCqJeDAKhHrWnIKgn6aEy+sClqAxztS1Bl13DLHdu9+w6OtOeO7vb5jBn5t5z/uec39xhdmYN0zSlaTpN2jczJiPNFTKyaw1r8vQBydqJFnuV+Ng0nX1M05QGXLbo7nJEmysAM+ai0oQ8i4EzB4GTrRpBwq0FoOYJSZZHC0RThgWINBZo5Fm4pWSTWQCxzMeKs3J+C7HpLADA07IV0nTK25dZJQsgY79YcTZOcfEGm84C+HqDrHghnCwAPIv+by8htPV4ACX3PhgCmRpmt1+7A1zt0tbQAlgZBNG7dAg9ebyBGsyaVOeCHV0oburCzaOqqZpbdXTnlADd+1SqB6BF5AyzGz03ZY8lclRFuoGXPgPlT8g7K9CclJyPdO8H4s35sMPrV42pucOpJjOqP8Veh9VEs/MAKjHdn4LVqrmm9py7qZ8Kzk0dAxag95RD4zoxXaOpgyxAdCx1YqaKPc/5VWABMi2ejt6r3s6cjgWorOek2fnu1tAzlFyDBag9nCzUef7hU8VRigUgheb1TSGHhRr4K7OLRlw0WoDW+0DLPXsZ/ZgakP2tGJ8BOL9dpwWwRARRfw7wGCZrlo7O1Gzd8sTXxPB2ganG1KtjUKLOHk4MIO9VB6rRgUNnO1mzcoVINHu0WWBULbmRmFph7VkLQI33DvVoE7mAEPNdvfml8K7wo6i4EqtKqlBUWgXfSj98BX5HKgsw/HPcIUpn0t7eDvXxb5MK5OTm4nvoI4JfAthSuxFCJLdL9qgSa9/dUsfM9ra2NggxvwJCChQW5seh+vqe4vixIzDSBeB/NFMDOVcACLx9Foeqq9uK/hcvIYWqrMDsldgVmL8OuzTzcV3DToTDYRiGgc4r1xGjf1gEYSvFAhQZS2wS/VBA6IMqEhgIYMOmbSgpq8ZM7Ddsd0hFEzsLMLhePfiJuOtxsua8Nh4JBzEW+oTBD2/wNfge0YlRRMZH4mZPYgFI8KPmAtyuz6055adrWgAqMKkgCGQqNh2HmVb3kBqTT8Q9pHK3VNE/AAAA///HoRc2AAAABklEQVQDANe2R681Yw9XAAAAAElFTkSuQmCC">
-<title>FigmaDG</title>
+<title>FigmaDG - FigJam風</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -94,29 +93,16 @@
   /* ===== 要素 ===== */
   .element {
     position: absolute; user-select: none;
-    transition: box-shadow 0.15s;
   }
-  .element:hover:not(.has-script):not(.locked) {
-    box-shadow: 0 0 0 2px rgba(13,153,255,0.3);
-  }
-  .element.selected {
-    box-shadow: 0 0 0 3px #0d99ff, 0 4px 12px rgba(0,0,0,0.15);
-  }
+  /* 編集後の装飾は一切表示しない */
+  .element:hover:not(.has-script):not(.locked),
+  .element.selected,
   .element.group-selected {
-    box-shadow: 0 0 0 3px #f39c12, 0 4px 12px rgba(243,156,18,0.3);
+    box-shadow: none;
   }
+  /* ロックアイコン非表示 */
   .element.locked::after {
-    content: '🔒';
-    position: absolute;
-    top: -10px; right: -10px;
-    background: #f39c12; color: white;
-    border-radius: 50%;
-    width: 22px; height: 22px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px;
-    border: 2px solid white;
-    z-index: 20;
-    pointer-events: none;
+    display: none;
   }
   .element.hidden-element { display: none !important; }
   .element.faded { opacity: 0.2 !important; }
@@ -171,46 +157,28 @@
   .element.has-script.dragging .script-frame,
   .element.has-script.dragging .click-outline { pointer-events: none; }
 
+  /* リサイズハンドル: 完全非表示 */
   .element .resize-handle {
-    position: absolute; width: 10px; height: 10px;
-    background: white; border: 2px solid #0d99ff;
-    border-radius: 50%; display: none; z-index: 15;
+    display: none !important;
   }
-  .element.selected .resize-handle { display: block; }
-  .element.locked.selected .resize-handle {
-    border-color: #f39c12; background: #f39c12; cursor: not-allowed;
+  .element.selected .resize-handle {
+    display: none !important;
   }
-  .resize-handle.br { right: -5px; bottom: -5px; cursor: se-resize; }
-  .resize-handle.bl { left: -5px; bottom: -5px; cursor: sw-resize; }
-  .resize-handle.tr { right: -5px; top: -5px; cursor: ne-resize; }
-  .resize-handle.tl { left: -5px; top: -5px; cursor: nw-resize; }
 
+  /* 削除ボタン: 完全非表示 */
   .element .delete-btn {
-    position: absolute; top: -12px; right: -12px;
-    width: 22px; height: 22px; border-radius: 50%;
-    background: #c0392b; color: white; border: 2px solid white;
-    font-size: 12px; line-height: 1; cursor: pointer;
-    display: none; align-items: center; justify-content: center;
-    font-weight: bold; z-index: 16;
+    display: none !important;
   }
-  .element.selected .delete-btn { display: flex; }
-  .element.locked.selected .delete-btn { display: none; }
-  .element .delete-btn:hover { background: #e74c3c; }
+  .element.selected .delete-btn {
+    display: none !important;
+  }
 
+  /* スクリプトバッジ: 完全非表示 */
   .element .script-badge {
-    position: absolute; top: -10px; left: -10px;
-    width: 20px; height: 20px; border-radius: 50%;
-    background: #f39c12; color: white;
-    font-size: 11px; font-weight: bold;
-    display: flex; align-items: center; justify-content: center;
-    border: 2px solid white; z-index: 17;
-    pointer-events: none;
+    display: none !important;
   }
-  .element .script-badge.has-action { background: #27ae60; }
-  .element .script-badge.group-action { background: #9b59b6; }
-  .element .script-badge.has-sound { background: #e74c3c; }
 
-  /* ===== 名前ラベル（重要: 本体とは独立して非表示） ===== */
+  /* 名前ラベル: 設定による表示制御のみ */
   .element .name-label {
     position: absolute;
     top: -20px; left: 0;
@@ -219,18 +187,14 @@
     font-size: 10px; font-weight: 600;
     white-space: nowrap;
     pointer-events: none;
-    display: none; /* デフォルト非表示 */
+    display: none;
     max-width: 200px; overflow: hidden;
     text-overflow: ellipsis;
     z-index: 14;
   }
-  /* 名前を持つ要素はラベル表示（hideName でない限り） */
   .element.show-name:not(.hide-name) .name-label { display: block; }
-  /* 選択時は一時的に表示 */
   .element.selected:not(.hide-name) .name-label { display: block; }
-  /* hideName が true なら選択時も含めて完全非表示 */
   .element.hide-name .name-label { display: none !important; }
-  /* ただし本人が選択中は薄く表示（編集の目安） */
   .element.hide-name.selected.owner-view .name-label {
     display: block !important;
     opacity: 0.4;
@@ -827,7 +791,6 @@
   }
   #pasteHint.show { display: block; }
 
-  /* Undo/Redo 通知 */
   #undoToast {
     position: fixed; top: 100px; left: 50%;
     transform: translateX(-50%);
@@ -1218,7 +1181,7 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
-const SETTINGS_KEY = 'figmadg-settings-v6';
+const SETTINGS_KEY = 'figmadg-settings-v7';
 const DEFAULT_SETTINGS = {
   showGrid: true, showRemoteCursors: true, showCoordDisplay: true,
   showCoordToast: true, logAutoShow: true, logCoord: true,
@@ -1268,8 +1231,7 @@ let isSelecting = false;
 let selectionStart = { x: 0, y: 0 };
 let activeSounds = {};
 
-// ============ Undo/Redo 履歴 ============
-// 各エントリ: { type: 'move'|'resize'|'update'|'add'|'delete'|'group', ... }
+// Undo/Redo
 const undoStack = [];
 const redoStack = [];
 const MAX_HISTORY = 50;
@@ -1282,30 +1244,16 @@ function pushUndo(action) {
   redoStack.length = 0;
   updateUndoButtons();
 }
-
 function updateUndoButtons() {
   const undoBtn = document.getElementById('undoBtn');
   const redoBtn = document.getElementById('redoBtn');
   if (undoBtn) undoBtn.disabled = undoStack.length === 0;
   if (redoBtn) redoBtn.disabled = redoStack.length === 0;
 }
-
-// 変更前後を記録してDB更新
 async function updateWithUndo(elementId, before, after) {
   pushUndo({ type: 'update', elementId, before, after });
   await update(ref(db, `rooms/${roomId}/elements/${elementId}`), after).catch(()=>{});
 }
-
-// 一括更新（複数要素）
-async function updateMultipleWithUndo(changes) {
-  // changes: [{ id, before, after }]
-  if (changes.length === 0) return;
-  pushUndo({ type: 'multi', changes });
-  for (const c of changes) {
-    await update(ref(db, `rooms/${roomId}/elements/${c.id}`), c.after).catch(()=>{});
-  }
-}
-
 async function performUndo() {
   if (undoStack.length === 0) return;
   const action = undoStack.pop();
@@ -1315,8 +1263,12 @@ async function performUndo() {
       case 'move':
       case 'resize':
       case 'update':
-        await update(ref(db, `rooms/${roomId}/elements/${action.elementId}`), action.before).catch(()=>{});
-        showUndoToast(`↶ 元に戻す (${action.type})`);
+        if (action.isGroupAction) {
+          await update(ref(db, `rooms/${roomId}/groups/${action.elementId}`), action.before).catch(()=>{});
+        } else {
+          await update(ref(db, `rooms/${roomId}/elements/${action.elementId}`), action.before).catch(()=>{});
+        }
+        showUndoToast(`↶ 元に戻す`);
         break;
       case 'multi':
         for (const c of action.changes) {
@@ -1325,29 +1277,20 @@ async function performUndo() {
         showUndoToast(`↶ 元に戻す (複数)`);
         break;
       case 'add':
-        // 追加を戻す = 削除
         for (const item of action.items) {
-          if (item.isGroup) {
-            await remove(ref(db, `rooms/${roomId}/groups/${item.id}`)).catch(()=>{});
-          } else {
-            await remove(ref(db, `rooms/${roomId}/elements/${item.id}`)).catch(()=>{});
-          }
+          if (item.isGroup) await remove(ref(db, `rooms/${roomId}/groups/${item.id}`)).catch(()=>{});
+          else await remove(ref(db, `rooms/${roomId}/elements/${item.id}`)).catch(()=>{});
         }
         showUndoToast(`↶ 追加を取消`);
         break;
       case 'delete':
-        // 削除を戻す = 復元
         for (const item of action.items) {
-          if (item.isGroup) {
-            await set(ref(db, `rooms/${roomId}/groups/${item.id}`), item.data).catch(()=>{});
-          } else {
-            await set(ref(db, `rooms/${roomId}/elements/${item.id}`), item.data).catch(()=>{});
-          }
+          if (item.isGroup) await set(ref(db, `rooms/${roomId}/groups/${item.id}`), item.data).catch(()=>{});
+          else await set(ref(db, `rooms/${roomId}/elements/${item.id}`), item.data).catch(()=>{});
         }
         showUndoToast(`↶ 削除を復元`);
         break;
       case 'group':
-        // グループ化を戻す = 解除
         for (const [id, before] of Object.entries(action.beforeElements)) {
           await update(ref(db, `rooms/${roomId}/elements/${id}`), before).catch(()=>{});
         }
@@ -1355,7 +1298,6 @@ async function performUndo() {
         showUndoToast(`↶ グループ化を取消`);
         break;
       case 'ungroup':
-        // 解除を戻す = 再グループ化
         for (const [id, after] of Object.entries(action.afterElements)) {
           await update(ref(db, `rooms/${roomId}/elements/${id}`), after).catch(()=>{});
         }
@@ -1370,7 +1312,6 @@ async function performUndo() {
     updateUndoButtons();
   }
 }
-
 async function performRedo() {
   if (redoStack.length === 0) return;
   const action = redoStack.pop();
@@ -1380,8 +1321,12 @@ async function performRedo() {
       case 'move':
       case 'resize':
       case 'update':
-        await update(ref(db, `rooms/${roomId}/elements/${action.elementId}`), action.after).catch(()=>{});
-        showUndoToast(`↷ やり直す (${action.type})`);
+        if (action.isGroupAction) {
+          await update(ref(db, `rooms/${roomId}/groups/${action.elementId}`), action.after).catch(()=>{});
+        } else {
+          await update(ref(db, `rooms/${roomId}/elements/${action.elementId}`), action.after).catch(()=>{});
+        }
+        showUndoToast(`↷ やり直す`);
         break;
       case 'multi':
         for (const c of action.changes) {
@@ -1391,21 +1336,15 @@ async function performRedo() {
         break;
       case 'add':
         for (const item of action.items) {
-          if (item.isGroup) {
-            await set(ref(db, `rooms/${roomId}/groups/${item.id}`), item.data).catch(()=>{});
-          } else {
-            await set(ref(db, `rooms/${roomId}/elements/${item.id}`), item.data).catch(()=>{});
-          }
+          if (item.isGroup) await set(ref(db, `rooms/${roomId}/groups/${item.id}`), item.data).catch(()=>{});
+          else await set(ref(db, `rooms/${roomId}/elements/${item.id}`), item.data).catch(()=>{});
         }
         showUndoToast(`↷ 追加をやり直す`);
         break;
       case 'delete':
         for (const item of action.items) {
-          if (item.isGroup) {
-            await remove(ref(db, `rooms/${roomId}/groups/${item.id}`)).catch(()=>{});
-          } else {
-            await remove(ref(db, `rooms/${roomId}/elements/${item.id}`)).catch(()=>{});
-          }
+          if (item.isGroup) await remove(ref(db, `rooms/${roomId}/groups/${item.id}`)).catch(()=>{});
+          else await remove(ref(db, `rooms/${roomId}/elements/${item.id}`)).catch(()=>{});
         }
         showUndoToast(`↷ 削除をやり直す`);
         break;
@@ -1431,7 +1370,6 @@ async function performRedo() {
     updateUndoButtons();
   }
 }
-
 function showUndoToast(msg) {
   const el = document.getElementById('undoToast');
   el.textContent = msg;
@@ -1440,7 +1378,6 @@ function showUndoToast(msg) {
   window._undoToastTimer = setTimeout(() => el.classList.remove('show'), 1200);
 }
 
-// DOM
 const canvasWrap = document.getElementById('canvasWrap');
 const canvas = document.getElementById('canvas');
 const selectionRect = document.getElementById('selectionRect');
@@ -1553,7 +1490,6 @@ function getElementSize(el) {
     default: return { w: 100, h: 100 };
   }
 }
-
 function isElementLocked(el) {
   if (!el) return false;
   if (el.locked) {
@@ -1564,7 +1500,6 @@ function isElementLocked(el) {
 }
 function canMove(el) { return !isElementLocked(el); }
 
-// レイヤー配置
 async function setLayerPosition(id, position) {
   const el = elements[id];
   if (!el) return;
@@ -1580,8 +1515,7 @@ async function setLayerPosition(id, position) {
     case 'back':     newZ = Math.max(0, minZ - 1000); break;
     default:         newZ = el.z || 1;
   }
-  const after = { z: newZ };
-  await updateWithUndo(id, before, after);
+  await updateWithUndo(id, before, { z: newZ });
 }
 
 function applySettings() {
@@ -1713,7 +1647,6 @@ document.getElementById('settingsReset').addEventListener('click', () => {
   saveSettings(); applySettings(); openSettings();
 });
 
-// Undo/Redo ボタン
 document.getElementById('undoBtn').addEventListener('click', performUndo);
 document.getElementById('redoBtn').addEventListener('click', performRedo);
 
@@ -1819,7 +1752,6 @@ function joinRoom(id) {
   usersEl.innerHTML = '';
   Object.values(activeSounds).forEach(a => { try { a.pause(); } catch(e){} });
   activeSounds = {};
-  // 履歴クリア
   undoStack.length = 0;
   redoStack.length = 0;
   updateUndoButtons();
@@ -1885,8 +1817,7 @@ function joinRoom(id) {
       const needsRebuild = isNew || (oldEl && (
         oldEl.type !== el.type ||
         (oldEl.code && !el.code) || (!oldEl.code && el.code) ||
-        (oldEl.action && !el.action) || (!oldEl.action && el.action) ||
-        oldEl.hideName !== el.hideName
+        (oldEl.action && !el.action) || (!oldEl.action && el.action)
       ));
 
       if (needsRebuild) {
@@ -1926,7 +1857,6 @@ function joinRoom(id) {
   if (settings.autoChat) toggleChat(true);
 }
 
-// ============ マウス操作 ============
 canvas.addEventListener('mousedown', (e) => {
   if (!currentUser) return;
   if (e.target === canvas || e.target.id === 'selectionRect') {
@@ -2070,7 +2000,6 @@ function updateGroupIndicatorsForMembers(memberIds) {
   });
 }
 
-// ============ マウスアップ (Undo 記録付き) ============
 document.addEventListener('mouseup', async (e) => {
   if (isSelecting) {
     const rect = canvas.getBoundingClientRect();
@@ -2099,7 +2028,6 @@ document.addEventListener('mouseup', async (e) => {
     selectionRect.classList.remove('show');
   }
 
-  // ドラッグ移動のUndo記録
   if (isDragging && currentDragId) {
     const targetIds = dragGroupMembers && dragGroupMembers.length > 0
       ? dragGroupMembers
@@ -2126,15 +2054,10 @@ document.addEventListener('mouseup', async (e) => {
     });
 
     if (changes.length > 0) {
-      // 実際にDBへ保存
       for (const c of changes) {
         await update(ref(db, `rooms/${roomId}/elements/${c.id}`), c.after).catch(()=>{});
       }
-      // Undo記録
-      pushUndo({
-        type: 'multi',
-        changes: changes
-      });
+      pushUndo({ type: 'multi', changes: changes });
     }
 
     Object.values(elementRefs).forEach(d => d.classList.remove('dragging'));
@@ -2142,7 +2065,6 @@ document.addEventListener('mouseup', async (e) => {
     dragStartPositions = {};
   }
 
-  // リサイズのUndo記録
   if (resizeState) {
     const { id, newW, newH, newX, newY, origW, origH, origX, origY } = resizeState;
     const sel = elements[id];
@@ -2185,7 +2107,6 @@ function createElementDOM(id, el) {
 
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
   const hasAction = el.action && el.action.action;
-  const hasSound = el.action && el.action.action === 'playSound';
   const group = el.groupId ? groups[el.groupId] : null;
   const groupHasAction = group && group.action && group.action.action;
 
@@ -2195,7 +2116,6 @@ function createElementDOM(id, el) {
   div.appendChild(nameLabel);
   if (el.name) div.classList.add('show-name');
   if (el.hideName) div.classList.add('hide-name');
-  // 本人ビュー用クラス（自分が編集者の場合、hide-name 中でも薄く名前を見せる）
   if (el.authorUid === currentUser.uid) div.classList.add('owner-view');
 
   if (hasCode) {
@@ -2228,11 +2148,6 @@ function createElementDOM(id, el) {
       startDrag(id);
     });
     div.appendChild(outline);
-
-    const badge = document.createElement('div');
-    badge.className = 'script-badge' + (hasAction ? ' has-action' : '') + (groupHasAction ? ' group-action' : '') + (hasSound ? ' has-sound' : '');
-    badge.textContent = hasSound ? '🔊' : (hasAction ? '🎯' : (hasCode ? '⚡' : ''));
-    div.appendChild(badge);
   } else {
     switch (el.type) {
       case 'sticky':
@@ -2284,26 +2199,6 @@ function createElementDOM(id, el) {
         break;
     }
   }
-
-  ['tl','tr','bl','br'].forEach(pos => {
-    const h = document.createElement('div');
-    h.className = 'resize-handle ' + pos;
-    h.addEventListener('mousedown', (e) => startResize(e, id, pos));
-    div.appendChild(h);
-  });
-
-  const del = document.createElement('div');
-  del.className = 'delete-btn';
-  del.textContent = '×';
-  del.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    if (isElementLocked(el)) { showHint('🔒 ロック中'); return; }
-    if (!confirm('削除しますか？')) return;
-    // Undo記録
-    pushUndo({ type: 'delete', items: [{ id, data: JSON.parse(JSON.stringify(el)) }] });
-    await remove(ref(db, `rooms/${roomId}/elements/${id}`)).catch(()=>{});
-  });
-  div.appendChild(del);
 
   if (!hasCode) div.addEventListener('mousedown', onElementMouseDown);
   div.addEventListener('dblclick', onElementDblClick);
@@ -2427,8 +2322,6 @@ function clearGroupSelection() {
 }
 
 function onElementMouseDown(e) {
-  if (e.target.classList.contains('resize-handle')) return;
-  if (e.target.classList.contains('delete-btn')) return;
   if (e.target.classList.contains('name-label')) return;
   const div = e.currentTarget;
   if (div.querySelector('[contenteditable="true"]') === document.activeElement) return;
@@ -2440,25 +2333,6 @@ function onElementMouseDown(e) {
   selectElement(id, true);
   if (!canMove(el)) { showHint('🔒 本人以外は移動できません'); return; }
   startDrag(id);
-}
-
-function startResize(e, id, pos) {
-  e.stopPropagation();
-  e.preventDefault();
-  const el = elements[id];
-  if (isElementLocked(el)) { showHint('🔒 本人以外はサイズ変更できません'); return; }
-  const dom = elementRefs[id];
-  if (!dom) return;
-  const rect = canvas.getBoundingClientRect();
-  const bcr = dom.getBoundingClientRect();
-  resizeState = {
-    id, pos,
-    startX: e.clientX - rect.left,
-    startY: e.clientY - rect.top,
-    origW: bcr.width, origH: bcr.height,
-    origX: parseInt(dom.style.left) || 0,
-    origY: parseInt(dom.style.top) || 0
-  };
 }
 
 function onElementDblClick(e) {
@@ -2635,7 +2509,6 @@ function showGroupPropPanel(gid) {
       afterElements[mid] = { groupId: null };
       await remove(ref(db, `rooms/${roomId}/elements/${mid}/groupId`));
     }
-    // Undo用記録
     pushUndo({
       type: 'ungroup',
       groupId: gid,
@@ -2682,6 +2555,7 @@ function updatePropPanelIfNeeded() {
   }
   if (selectedIds.size > 0) showPropPanel();
 }
+
 function showPropPanel() {
   if (selectedIds.size === 0) { propPanel.classList.remove('show'); return; }
   propPanel.classList.add('show');
@@ -2699,6 +2573,72 @@ function showPropPanel() {
   const isSticky = el.type === 'sticky';
   const isStamp = el.type === 'stamp';
 
+  // 🗑 削除ボタン（先頭）
+  if (!locked || isOwner) {
+    const gDelete = document.createElement('div');
+    gDelete.className = 'pp-group';
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '🗑 削除';
+    delBtn.style.background = '#c0392b';
+    delBtn.style.color = 'white';
+    delBtn.style.borderColor = '#c0392b';
+    delBtn.style.fontWeight = '600';
+    delBtn.title = 'この要素を削除';
+    delBtn.addEventListener('click', async () => {
+      if (!confirm('削除しますか？')) return;
+      pushUndo({ type: 'delete', items: [{ id, data: JSON.parse(JSON.stringify(el)) }] });
+      await remove(ref(db, `rooms/${roomId}/elements/${id}`));
+      clearSelection();
+      propPanel.classList.remove('show');
+    });
+    gDelete.appendChild(delBtn);
+    propPanel.appendChild(gDelete);
+  }
+
+  // 📐 サイズ変更（数値入力）
+  if (!locked || isOwner) {
+    const sizeInfo = getElementSize(el);
+    const gSize = document.createElement('div');
+    gSize.className = 'pp-group';
+    gSize.innerHTML = `<label>サイズ</label>`;
+    const wInput = document.createElement('input');
+    wInput.type = 'number';
+    wInput.min = 30; wInput.max = 2000;
+    wInput.value = Math.round(sizeInfo.w);
+    wInput.title = '幅';
+    wInput.style.width = '60px';
+    let beforeW = wInput.value;
+    wInput.addEventListener('focus', () => { beforeW = wInput.value; });
+    wInput.addEventListener('change', () => {
+      const nv = parseInt(wInput.value);
+      if (nv && nv !== parseInt(beforeW)) {
+        updateWithUndo(id, { width: parseInt(beforeW) }, { width: nv });
+      }
+    });
+    const hInput = document.createElement('input');
+    hInput.type = 'number';
+    hInput.min = 30; hInput.max = 2000;
+    hInput.value = Math.round(sizeInfo.h);
+    hInput.title = '高さ';
+    hInput.style.width = '60px';
+    let beforeH = hInput.value;
+    hInput.addEventListener('focus', () => { beforeH = hInput.value; });
+    hInput.addEventListener('change', () => {
+      const nv = parseInt(hInput.value);
+      if (nv && nv !== parseInt(beforeH)) {
+        updateWithUndo(id, { height: parseInt(beforeH) }, { height: nv });
+      }
+    });
+    gSize.appendChild(wInput);
+    const xSpan = document.createElement('span');
+    xSpan.textContent = '×';
+    xSpan.style.color = '#999';
+    gSize.appendChild(xSpan);
+    gSize.appendChild(hInput);
+    propPanel.appendChild(gSize);
+  }
+
+  // 名前
   const gName = document.createElement('div');
   gName.className = 'pp-group';
   gName.innerHTML = `<label>名前</label>`;
@@ -2713,11 +2653,9 @@ function showPropPanel() {
       const v = nameInput.value.trim();
       const before = { name: el.name || null };
       if (v) {
-        const after = { name: v };
-        updateWithUndo(id, before, after);
+        updateWithUndo(id, before, { name: v });
       } else {
-        const after = { name: null };
-        pushUndo({ type: 'update', elementId: id, before, after });
+        pushUndo({ type: 'update', elementId: id, before, after: { name: null } });
         remove(ref(db, `rooms/${roomId}/elements/${id}/name`));
       }
     });
@@ -2725,20 +2663,16 @@ function showPropPanel() {
   gName.appendChild(nameInput);
   propPanel.appendChild(gName);
 
+  // 位置情報
   const gPos = document.createElement('div');
   gPos.className = 'pp-group';
   const posInfo = document.createElement('div');
   posInfo.className = 'pos-info';
   posInfo.textContent = `📍 (${Math.round(el.x)}, ${Math.round(el.y)})`;
   gPos.appendChild(posInfo);
-  if (el.width && el.height) {
-    const sizeInfo = document.createElement('div');
-    sizeInfo.className = 'pos-info';
-    sizeInfo.textContent = `📐 ${Math.round(el.width)}×${Math.round(el.height)}`;
-    gPos.appendChild(sizeInfo);
-  }
   propPanel.appendChild(gPos);
 
+  // グループ情報
   if (el.groupId && groups[el.groupId]) {
     const gInfo = document.createElement('div');
     gInfo.className = 'pp-group';
@@ -2752,6 +2686,7 @@ function showPropPanel() {
     propPanel.appendChild(gInfo);
   }
 
+  // ロック
   const gLock = document.createElement('div');
   gLock.className = 'pp-group';
   const lockBtn = document.createElement('button');
@@ -2760,9 +2695,8 @@ function showPropPanel() {
     lockBtn.classList.add('disabled');
     lockBtn.textContent = el.locked ? '🔒 ロック中' : '🔓 自由';
     lockBtn.disabled = true;
-    lockBtn.title = '本人のみ変更可能';
   } else {
-    lockBtn.textContent = el.locked ? '🔒 ロック中（クリックで解除）' : '🔓 ロックする';
+    lockBtn.textContent = el.locked ? '🔒 ロック中' : '🔓 ロックする';
     lockBtn.addEventListener('click', () => {
       updateWithUndo(id, { locked: !!el.locked }, { locked: !el.locked });
     });
@@ -2770,13 +2704,13 @@ function showPropPanel() {
   gLock.appendChild(lockBtn);
   propPanel.appendChild(gLock);
 
-  // 名前表示切替（本人のみ）— 本体には影響しない
+  // 名前表示切替（本人のみ）
   if (isOwner) {
     const gNameShow = document.createElement('div');
     gNameShow.className = 'pp-group';
     const nameShowBtn = document.createElement('button');
     nameShowBtn.textContent = el.hideName ? '👁 名前を表示' : '🙈 名前を隠す';
-    nameShowBtn.title = '名前ラベルだけを非表示にします（本体は残ります）';
+    nameShowBtn.title = '名前ラベルだけを非表示（本体は残ります）';
     nameShowBtn.addEventListener('click', () => {
       updateWithUndo(id, { hideName: !!el.hideName }, { hideName: !el.hideName });
     });
@@ -2803,6 +2737,7 @@ function showPropPanel() {
     gScript.appendChild(codeBtn);
     propPanel.appendChild(gScript);
 
+    // 配置
     const gLayer = document.createElement('div');
     gLayer.className = 'pp-group';
     gLayer.innerHTML = `<label>配置</label>`;
@@ -2824,6 +2759,7 @@ function showPropPanel() {
     gLayer.appendChild(layerSelect);
     propPanel.appendChild(gLayer);
 
+    // 色
     if (!hasCode && (isTextType || isShapeType || isSticky)) {
       const g = document.createElement('div');
       g.className = 'pp-group';
@@ -2831,7 +2767,6 @@ function showPropPanel() {
       const input = document.createElement('input');
       input.type = 'color';
       input.value = rgbToHex((isSticky || isShapeType) ? (el.color || '#0d99ff') : (el.color || '#222222'));
-      // 色変更は連続するので、input（ドラッグ中）は変更のみ、change（確定）で Undo 記録
       input.addEventListener('input', () => {
         update(ref(db, `rooms/${roomId}/elements/${id}`), { color: input.value }).catch(()=>{});
       });
@@ -2839,18 +2774,14 @@ function showPropPanel() {
       input.addEventListener('focus', () => { beforeColor = input.value; });
       input.addEventListener('change', () => {
         if (beforeColor !== input.value) {
-          pushUndo({
-            type: 'update',
-            elementId: id,
-            before: { color: beforeColor },
-            after: { color: input.value }
-          });
+          pushUndo({ type: 'update', elementId: id, before: { color: beforeColor }, after: { color: input.value } });
         }
       });
       g.appendChild(input);
       propPanel.appendChild(g);
     }
 
+    // フォントサイズ
     if (!hasCode && (isTextType || isStamp)) {
       const g = document.createElement('div');
       g.className = 'pp-group';
@@ -2866,34 +2797,23 @@ function showPropPanel() {
       });
       input.addEventListener('change', () => {
         if (beforeSize !== input.value) {
-          pushUndo({
-            type: 'update',
-            elementId: id,
-            before: { fontSize: parseInt(beforeSize) },
-            after: { fontSize: parseInt(input.value) }
-          });
+          pushUndo({ type: 'update', elementId: id, before: { fontSize: parseInt(beforeSize) }, after: { fontSize: parseInt(input.value) } });
         }
       });
       g.appendChild(input);
       propPanel.appendChild(g);
     }
 
+    // フォント太さ
     if (!hasCode && isTextType) {
       const gWeight = document.createElement('div');
       gWeight.className = 'pp-group';
       gWeight.innerHTML = `<label>太さ</label>`;
       const weightSelect = document.createElement('select');
-      weightSelect.title = 'フォントの太さ';
       const weights = [
-        { v: 100, l: '100 (極細)' },
-        { v: 200, l: '200' },
-        { v: 300, l: '300 (細)' },
-        { v: 400, l: '400 (標準)' },
-        { v: 500, l: '500' },
-        { v: 600, l: '600 (中太)' },
-        { v: 700, l: '700 (太字)' },
-        { v: 800, l: '800' },
-        { v: 900, l: '900 (極太)' }
+        { v: 100, l: '100' }, { v: 200, l: '200' }, { v: 300, l: '300' },
+        { v: 400, l: '400 標準' }, { v: 500, l: '500' }, { v: 600, l: '600' },
+        { v: 700, l: '700 太字' }, { v: 800, l: '800' }, { v: 900, l: '900 極太' }
       ];
       weights.forEach(w => {
         const opt = document.createElement('option');
@@ -2909,6 +2829,7 @@ function showPropPanel() {
       propPanel.appendChild(gWeight);
     }
 
+    // 太字・斜体
     if (!hasCode && isTextType) {
       const g = document.createElement('div');
       g.className = 'pp-group';
@@ -2916,7 +2837,6 @@ function showPropPanel() {
       boldBtn.textContent = 'B';
       boldBtn.style.fontWeight = 'bold';
       if (el.bold) boldBtn.classList.add('active');
-      boldBtn.title = '太字切替';
       boldBtn.addEventListener('click', () => {
         updateWithUndo(id, { bold: !!el.bold }, { bold: !el.bold });
       });
@@ -2924,7 +2844,6 @@ function showPropPanel() {
       italicBtn.textContent = 'I';
       italicBtn.style.fontStyle = 'italic';
       if (el.italic) italicBtn.classList.add('active');
-      italicBtn.title = '斜体切替';
       italicBtn.addEventListener('click', () => {
         updateWithUndo(id, { italic: !!el.italic }, { italic: !el.italic });
       });
@@ -2933,6 +2852,7 @@ function showPropPanel() {
       propPanel.appendChild(g);
     }
 
+    // 表示/非表示
     const gVis = document.createElement('div');
     gVis.className = 'pp-group';
     const visBtn = document.createElement('button');
@@ -2943,6 +2863,7 @@ function showPropPanel() {
     gVis.appendChild(visBtn);
     propPanel.appendChild(gVis);
 
+    // 複製
     const gDup = document.createElement('div');
     gDup.className = 'pp-group';
     const dupBtn = document.createElement('button');
@@ -3097,13 +3018,7 @@ document.getElementById('gmSave').addEventListener('click', async () => {
     await update(ref(db, `rooms/${roomId}/elements/${id}`), { groupId: gid });
   }
   await set(ref(db, `rooms/${roomId}/groups/${gid}`), groupData);
-  pushUndo({
-    type: 'group',
-    groupId: gid,
-    groupData,
-    beforeElements,
-    afterElements
-  });
+  pushUndo({ type: 'group', groupId: gid, groupData, beforeElements, afterElements });
   groupModal.classList.remove('show');
   addLog('event', `📦 グループ「${name}」作成`);
   showHint(`📦 グループ「${name}」`);
@@ -3262,10 +3177,7 @@ document.getElementById('vsSoundVolume').addEventListener('input', (e) => {
 document.getElementById('vsSoundFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > 4 * 1024 * 1024) {
-    showHint('⚠️ ファイルが大きすぎます（4MB以下）');
-    return;
-  }
+  if (file.size > 4 * 1024 * 1024) { showHint('⚠️ 4MB以下にしてください'); return; }
   const reader = new FileReader();
   reader.onload = () => {
     document.getElementById('vsSoundUrl').value = reader.result;
@@ -3292,32 +3204,18 @@ document.getElementById('vsSave').addEventListener('click', async () => {
   if (editingActionGroupId) {
     const g = groups[editingActionGroupId];
     pushUndo({
-      type: 'update',
-      isGroupAction: true,
-      elementId: editingActionGroupId,
-      before: { action: g.action || null },
-      after: { action }
+      type: 'update', isGroupAction: true, elementId: editingActionGroupId,
+      before: { action: g.action || null }, after: { action }
     });
-    // グループアクション用の適用（updateではなくグループへ）
-    if (g.action) {
-      await set(ref(db, `rooms/${roomId}/groups/${editingActionGroupId}/action`), action);
-    } else {
-      await set(ref(db, `rooms/${roomId}/groups/${editingActionGroupId}/action`), action);
-    }
+    await set(ref(db, `rooms/${roomId}/groups/${editingActionGroupId}/action`), action);
     showHint('🎯 グループ動作を保存');
   } else if (editingActionId) {
     const el = elements[editingActionId];
     pushUndo({
-      type: 'update',
-      elementId: editingActionId,
-      before: { action: el.action || null },
-      after: { action }
+      type: 'update', elementId: editingActionId,
+      before: { action: el.action || null }, after: { action }
     });
-    if (el.action) {
-      await set(ref(db, `rooms/${roomId}/elements/${editingActionId}/action`), action);
-    } else {
-      await set(ref(db, `rooms/${roomId}/elements/${editingActionId}/action`), action);
-    }
+    await set(ref(db, `rooms/${roomId}/elements/${editingActionId}/action`), action);
     if (elementRefs[editingActionId]) {
       elementRefs[editingActionId].remove();
       elementRefs[editingActionId] = createElementDOM(editingActionId, elements[editingActionId]);
@@ -3333,22 +3231,13 @@ document.getElementById('vsRemove').addEventListener('click', async () => {
   if (!confirm('動作設定を削除しますか？')) return;
   if (editingActionGroupId) {
     const g = groups[editingActionGroupId];
-    pushUndo({
-      type: 'update',
-      isGroupAction: true,
-      elementId: editingActionGroupId,
-      before: { action: g.action || null },
-      after: { action: null }
-    });
+    pushUndo({ type: 'update', isGroupAction: true, elementId: editingActionGroupId,
+      before: { action: g.action || null }, after: { action: null } });
     await remove(ref(db, `rooms/${roomId}/groups/${editingActionGroupId}/action`));
   } else if (editingActionId) {
     const el = elements[editingActionId];
-    pushUndo({
-      type: 'update',
-      elementId: editingActionId,
-      before: { action: el.action || null },
-      after: { action: null }
-    });
+    pushUndo({ type: 'update', elementId: editingActionId,
+      before: { action: el.action || null }, after: { action: null } });
     await remove(ref(db, `rooms/${roomId}/elements/${editingActionId}/action`));
     if (elementRefs[editingActionId]) {
       elementRefs[editingActionId].remove();
@@ -3393,18 +3282,14 @@ function playActionSound(soundUrl, volume, mode, elementId) {
     audio.loop = (mode === 'loop');
     audio.play().catch(err => {
       console.warn('Audio play failed:', err);
-      showHint('⚠️ 音声の再生に失敗しました（クリックが必要かも）');
+      showHint('⚠️ 音声の再生に失敗しました');
     });
     activeSounds[elementId] = audio;
     if (mode === 'once') {
-      audio.addEventListener('ended', () => {
-        delete activeSounds[elementId];
-      });
+      audio.addEventListener('ended', () => { delete activeSounds[elementId]; });
     }
     showHint('🔊 再生中');
-  } catch (err) {
-    console.error(err);
-  }
+  } catch (err) { console.error(err); }
 }
 
 async function executeAction(a, selfId, group) {
@@ -3498,11 +3383,7 @@ document.getElementById('codeSave').addEventListener('click', async () => {
   editingCodeData[currentCodeTab] = codeTextarea.value;
   const el = elements[editingCodeId];
   const before = { code: el.code || null, width: el.width || null, height: el.height || null };
-  const after = {
-    code: editingCodeData,
-    width: el.width || 240,
-    height: el.height || 160
-  };
+  const after = { code: editingCodeData, width: el.width || 240, height: el.height || 160 };
   pushUndo({ type: 'update', elementId: editingCodeId, before, after });
   await update(ref(db, `rooms/${roomId}/elements/${editingCodeId}`), after);
   closeCodeEditor();
@@ -3578,11 +3459,8 @@ ${code.html || ''}
 function applyTextStyle(dom, el) {
   if (el.fontSize) dom.style.fontSize = el.fontSize + 'px';
   if (el.color) dom.style.color = el.color;
-  if (el.fontWeight) {
-    dom.style.fontWeight = el.fontWeight;
-  } else if (el.bold) {
-    dom.style.fontWeight = 'bold';
-  }
+  if (el.fontWeight) dom.style.fontWeight = el.fontWeight;
+  else if (el.bold) dom.style.fontWeight = 'bold';
   if (el.italic) dom.style.fontStyle = 'italic';
 }
 
@@ -3604,7 +3482,6 @@ function updateElementDOM(id, el) {
     dom.classList.toggle('faded', el.opacity < 0.3);
   }
   dom.classList.toggle('locked', !!el.locked);
-  // 名前表示クラスは本体に影響しない
   if (el.hideName) dom.classList.add('hide-name');
   else dom.classList.remove('hide-name');
   if (el.authorUid === currentUser.uid) dom.classList.add('owner-view');
@@ -3800,7 +3677,6 @@ async function executeCommand(id) {
       break;
     case 'clear':
       if (confirm('全要素を削除しますか？')) {
-        // Undo記録
         const items = [];
         for (const [id, el] of Object.entries(elements)) {
           items.push({ id, data: JSON.parse(JSON.stringify(el)) });
@@ -3863,12 +3739,11 @@ document.getElementById('logClear').addEventListener('click', () => {
 });
 document.getElementById('logBtn').addEventListener('click', () => scriptLog.classList.toggle('show'));
 
-// ============ キーボード ============
+// キーボード
 document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase();
   const inEditable = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
 
-  // Undo / Redo (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y)
   if ((e.ctrlKey || e.metaKey) && !inEditable) {
     if (e.key === 'z' || e.key === 'Z') {
       e.preventDefault();
