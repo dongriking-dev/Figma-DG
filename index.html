@@ -48,6 +48,7 @@
   }
   #toolbar button.active { background: #0d99ff; border-color: #0d99ff; }
   #toolbar button:hover { background: #4a4a4a; }
+  #toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
   #toolbar input { cursor: text; }
   #toolbar .coord-display {
     background: #1a1a1a; color: #0d99ff;
@@ -60,7 +61,6 @@
 
   #main { flex: 1; display: flex; overflow: hidden; position: relative; }
 
-  /* ===== キャンバス (FigJam風に広くスクロール可能) ===== */
   #canvasWrap {
     flex: 1; position: relative;
     overflow: auto;
@@ -209,6 +209,7 @@
   .element .script-badge.group-action { background: #9b59b6; }
   .element .script-badge.has-sound { background: #e74c3c; }
 
+  /* ===== 名前ラベル（重要: 本体とは独立して非表示） ===== */
   .element .name-label {
     position: absolute;
     top: -20px; left: 0;
@@ -217,18 +218,24 @@
     font-size: 10px; font-weight: 600;
     white-space: nowrap;
     pointer-events: none;
-    display: none;
+    display: none; /* デフォルト非表示 */
     max-width: 200px; overflow: hidden;
     text-overflow: ellipsis;
     z-index: 14;
   }
-  .element.show-name .name-label { display: block; }
-  .element.selected .name-label { display: block; }
+  /* 名前を持つ要素はラベル表示（hideName でない限り） */
+  .element.show-name:not(.hide-name) .name-label { display: block; }
+  /* 選択時は一時的に表示 */
+  .element.selected:not(.hide-name) .name-label { display: block; }
+  /* hideName が true なら選択時も含めて完全非表示 */
+  .element.hide-name .name-label { display: none !important; }
+  /* ただし本人が選択中は薄く表示（編集の目安） */
+  .element.hide-name.selected.owner-view .name-label {
+    display: block !important;
+    opacity: 0.4;
+  }
   .element.locked .name-label { background: #f39c12; }
   .element.group-selected .name-label { background: #f39c12; }
-  /* 名前非表示設定 */
-  .element.hide-name .name-label { display: none !important; }
-  .element.hide-name.selected .name-label { display: none !important; }
 
   .group-indicator {
     position: absolute;
@@ -605,6 +612,7 @@
   #scriptLog .log-line.log { color: #6cc; }
   #scriptLog .log-line.event { color: #f39c12; }
   #scriptLog .log-line.coord { color: #2ecc71; }
+  #scriptLog .log-line.undo { color: #9b59b6; }
   #scriptLog .log-head {
     font-size: 10px; color: #999;
     margin-bottom: 6px; text-transform: uppercase;
@@ -705,13 +713,12 @@
   }
 
   #status {
-    position: absolute; bottom: 12px; left: 12px;
+    position: fixed; bottom: 12px; left: 12px;
     font-size: 12px; color: #555;
     background: rgba(255,255,255,0.9);
     padding: 6px 10px; border-radius: 4px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     pointer-events: none;
-    position: fixed;
     z-index: 5000;
   }
   #users { display: flex; gap: 4px; align-items: center; }
@@ -819,6 +826,21 @@
   }
   #pasteHint.show { display: block; }
 
+  /* Undo/Redo 通知 */
+  #undoToast {
+    position: fixed; top: 100px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(155,89,182,0.95);
+    color: white; padding: 8px 18px;
+    border-radius: 20px; font-size: 13px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 10010; opacity: 0;
+    transition: opacity 0.2s;
+    font-weight: 600;
+    pointer-events: none;
+  }
+  #undoToast.show { opacity: 1; }
+
   #bgmBtn.playing {
     background: #27ae60 !important;
     border-color: #27ae60 !important;
@@ -865,6 +887,9 @@
   <input id="roomInput" placeholder="部屋ID" style="width:100px">
   <button id="joinBtn">参加</button>
   <span class="sep"></span>
+  <button id="undoBtn" title="元に戻す (Ctrl+Z)" disabled>↶</button>
+  <button id="redoBtn" title="やり直す (Ctrl+Shift+Z)" disabled>↷</button>
+  <span class="sep"></span>
   <button id="slashBtn">/ コマンド</button>
   <button id="chatBtn">💬 履歴</button>
   <button id="logBtn" title="ログ">📜 ログ</button>
@@ -890,6 +915,7 @@
 
 <div id="hint"></div>
 <div id="groupHint"></div>
+<div id="undoToast"></div>
 <div id="status">未接続</div>
 
 <div id="myBubble">
@@ -902,7 +928,6 @@
 
 <div id="propPanel"></div>
 
-<!-- コードエディタ -->
 <div class="modal" id="codeModal">
   <div class="modal-box">
     <div class="modal-head">
@@ -941,7 +966,6 @@
   </div>
 </div>
 
-<!-- ビジュアルスクリプト -->
 <div class="modal" id="visualModal">
   <div class="modal-box" id="visualScript">
     <div class="modal-head">
@@ -1035,7 +1059,6 @@
   </div>
 </div>
 
-<!-- グループ編集 -->
 <div class="modal" id="groupModal">
   <div class="modal-box narrow">
     <div class="modal-head">
@@ -1049,10 +1072,6 @@
       </div>
       <p style="font-size:12px;color:#aaa;margin-top:12px;">メンバー:</p>
       <div class="group-member-list" id="gmList"></div>
-      <p style="font-size:11px;color:#888;margin-top:10px;line-height:1.6;">
-        💡 グループ化すると、メンバーの1つを移動すると全体が一緒に動きます。<br>
-        💡 グループのタグをクリックすると、グループ全体に動作を設定できます。
-      </p>
     </div>
     <div class="modal-foot">
       <div class="actions">
@@ -1063,7 +1082,6 @@
   </div>
 </div>
 
-<!-- 設定 -->
 <div class="modal" id="settingsModal">
   <div class="modal-box narrow">
     <div class="modal-head">
@@ -1172,7 +1190,6 @@
 </div>
 
 <audio id="bgmAudio" loop></audio>
-<audio id="actionAudio"></audio>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -1200,7 +1217,7 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
-const SETTINGS_KEY = 'figmadg-settings-v5';
+const SETTINGS_KEY = 'figmadg-settings-v6';
 const DEFAULT_SETTINGS = {
   showGrid: true, showRemoteCursors: true, showCoordDisplay: true,
   showCoordToast: true, logAutoShow: true, logCoord: true,
@@ -1248,9 +1265,181 @@ let editingActionData = {};
 let scriptLogLines = [];
 let isSelecting = false;
 let selectionStart = { x: 0, y: 0 };
-// 埋め込み音声の管理
-let activeSounds = {}; // { elementId: Audio }
+let activeSounds = {};
 
+// ============ Undo/Redo 履歴 ============
+// 各エントリ: { type: 'move'|'resize'|'update'|'add'|'delete'|'group', ... }
+const undoStack = [];
+const redoStack = [];
+const MAX_HISTORY = 50;
+let isUndoRedoInProgress = false;
+
+function pushUndo(action) {
+  if (isUndoRedoInProgress) return;
+  undoStack.push({ ...action, ts: Date.now() });
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack.length = 0;
+  updateUndoButtons();
+}
+
+function updateUndoButtons() {
+  const undoBtn = document.getElementById('undoBtn');
+  const redoBtn = document.getElementById('redoBtn');
+  if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+  if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+}
+
+// 変更前後を記録してDB更新
+async function updateWithUndo(elementId, before, after) {
+  pushUndo({ type: 'update', elementId, before, after });
+  await update(ref(db, `rooms/${roomId}/elements/${elementId}`), after).catch(()=>{});
+}
+
+// 一括更新（複数要素）
+async function updateMultipleWithUndo(changes) {
+  // changes: [{ id, before, after }]
+  if (changes.length === 0) return;
+  pushUndo({ type: 'multi', changes });
+  for (const c of changes) {
+    await update(ref(db, `rooms/${roomId}/elements/${c.id}`), c.after).catch(()=>{});
+  }
+}
+
+async function performUndo() {
+  if (undoStack.length === 0) return;
+  const action = undoStack.pop();
+  isUndoRedoInProgress = true;
+  try {
+    switch (action.type) {
+      case 'move':
+      case 'resize':
+      case 'update':
+        await update(ref(db, `rooms/${roomId}/elements/${action.elementId}`), action.before).catch(()=>{});
+        showUndoToast(`↶ 元に戻す (${action.type})`);
+        break;
+      case 'multi':
+        for (const c of action.changes) {
+          await update(ref(db, `rooms/${roomId}/elements/${c.id}`), c.before).catch(()=>{});
+        }
+        showUndoToast(`↶ 元に戻す (複数)`);
+        break;
+      case 'add':
+        // 追加を戻す = 削除
+        for (const item of action.items) {
+          if (item.isGroup) {
+            await remove(ref(db, `rooms/${roomId}/groups/${item.id}`)).catch(()=>{});
+          } else {
+            await remove(ref(db, `rooms/${roomId}/elements/${item.id}`)).catch(()=>{});
+          }
+        }
+        showUndoToast(`↶ 追加を取消`);
+        break;
+      case 'delete':
+        // 削除を戻す = 復元
+        for (const item of action.items) {
+          if (item.isGroup) {
+            await set(ref(db, `rooms/${roomId}/groups/${item.id}`), item.data).catch(()=>{});
+          } else {
+            await set(ref(db, `rooms/${roomId}/elements/${item.id}`), item.data).catch(()=>{});
+          }
+        }
+        showUndoToast(`↶ 削除を復元`);
+        break;
+      case 'group':
+        // グループ化を戻す = 解除
+        for (const [id, before] of Object.entries(action.beforeElements)) {
+          await update(ref(db, `rooms/${roomId}/elements/${id}`), before).catch(()=>{});
+        }
+        await remove(ref(db, `rooms/${roomId}/groups/${action.groupId}`)).catch(()=>{});
+        showUndoToast(`↶ グループ化を取消`);
+        break;
+      case 'ungroup':
+        // 解除を戻す = 再グループ化
+        for (const [id, after] of Object.entries(action.afterElements)) {
+          await update(ref(db, `rooms/${roomId}/elements/${id}`), after).catch(()=>{});
+        }
+        await set(ref(db, `rooms/${roomId}/groups/${action.groupId}`), action.groupData).catch(()=>{});
+        showUndoToast(`↶ グループ解除を取消`);
+        break;
+    }
+    redoStack.push(action);
+    addLog('undo', `↶ 元に戻す: ${action.type}`);
+  } finally {
+    isUndoRedoInProgress = false;
+    updateUndoButtons();
+  }
+}
+
+async function performRedo() {
+  if (redoStack.length === 0) return;
+  const action = redoStack.pop();
+  isUndoRedoInProgress = true;
+  try {
+    switch (action.type) {
+      case 'move':
+      case 'resize':
+      case 'update':
+        await update(ref(db, `rooms/${roomId}/elements/${action.elementId}`), action.after).catch(()=>{});
+        showUndoToast(`↷ やり直す (${action.type})`);
+        break;
+      case 'multi':
+        for (const c of action.changes) {
+          await update(ref(db, `rooms/${roomId}/elements/${c.id}`), c.after).catch(()=>{});
+        }
+        showUndoToast(`↷ やり直す (複数)`);
+        break;
+      case 'add':
+        for (const item of action.items) {
+          if (item.isGroup) {
+            await set(ref(db, `rooms/${roomId}/groups/${item.id}`), item.data).catch(()=>{});
+          } else {
+            await set(ref(db, `rooms/${roomId}/elements/${item.id}`), item.data).catch(()=>{});
+          }
+        }
+        showUndoToast(`↷ 追加をやり直す`);
+        break;
+      case 'delete':
+        for (const item of action.items) {
+          if (item.isGroup) {
+            await remove(ref(db, `rooms/${roomId}/groups/${item.id}`)).catch(()=>{});
+          } else {
+            await remove(ref(db, `rooms/${roomId}/elements/${item.id}`)).catch(()=>{});
+          }
+        }
+        showUndoToast(`↷ 削除をやり直す`);
+        break;
+      case 'group':
+        for (const [id, after] of Object.entries(action.afterElements)) {
+          await update(ref(db, `rooms/${roomId}/elements/${id}`), after).catch(()=>{});
+        }
+        await set(ref(db, `rooms/${roomId}/groups/${action.groupId}`), action.groupData).catch(()=>{});
+        showUndoToast(`↷ グループ化をやり直す`);
+        break;
+      case 'ungroup':
+        for (const [id, before] of Object.entries(action.beforeElements)) {
+          await update(ref(db, `rooms/${roomId}/elements/${id}`), before).catch(()=>{});
+        }
+        await remove(ref(db, `rooms/${roomId}/groups/${action.groupId}`)).catch(()=>{});
+        showUndoToast(`↷ グループ解除をやり直す`);
+        break;
+    }
+    undoStack.push(action);
+    addLog('undo', `↷ やり直し: ${action.type}`);
+  } finally {
+    isUndoRedoInProgress = false;
+    updateUndoButtons();
+  }
+}
+
+function showUndoToast(msg) {
+  const el = document.getElementById('undoToast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(window._undoToastTimer);
+  window._undoToastTimer = setTimeout(() => el.classList.remove('show'), 1200);
+}
+
+// DOM
 const canvasWrap = document.getElementById('canvasWrap');
 const canvas = document.getElementById('canvas');
 const selectionRect = document.getElementById('selectionRect');
@@ -1364,40 +1553,24 @@ function getElementSize(el) {
   }
 }
 
-// ============ ロック判定（強化） ============
-// 本人以外は絶対に移動・編集不可
 function isElementLocked(el) {
   if (!el) return false;
   if (el.locked) {
-    // 本人のみ解除可能
     const isOwner = el.authorUid && el.authorUid === currentUser?.uid;
     if (!isOwner) return true;
   }
   return false;
 }
-// 本人が編集可能か（ロックに関係なく自分の要素なら）
-function canEdit(el) {
-  if (!el) return false;
-  const isOwner = el.authorUid && el.authorUid === currentUser?.uid;
-  // ロックされていても本人は操作可能
-  if (el.locked) return isOwner;
-  return true;
-}
-// 移動可能か
-function canMove(el) {
-  if (!el) return false;
-  return !isElementLocked(el);
-}
+function canMove(el) { return !isElementLocked(el); }
 
-// ============ レイヤー配置 ============
+// レイヤー配置
 async function setLayerPosition(id, position) {
-  // position: 'front' | 'forward' | 'backward' | 'back'
   const el = elements[id];
   if (!el) return;
+  const before = { z: el.z };
   const zValues = Object.values(elements).map(e => e.z || 1).filter(z => typeof z === 'number');
   const maxZ = Math.max(...zValues, 1);
   const minZ = Math.min(...zValues, 1);
-
   let newZ;
   switch(position) {
     case 'front':    newZ = maxZ + 1000; break;
@@ -1406,7 +1579,8 @@ async function setLayerPosition(id, position) {
     case 'back':     newZ = Math.max(0, minZ - 1000); break;
     default:         newZ = el.z || 1;
   }
-  await update(ref(db, `rooms/${roomId}/elements/${id}`), { z: newZ });
+  const after = { z: newZ };
+  await updateWithUndo(id, before, after);
 }
 
 function applySettings() {
@@ -1538,6 +1712,10 @@ document.getElementById('settingsReset').addEventListener('click', () => {
   saveSettings(); applySettings(); openSettings();
 });
 
+// Undo/Redo ボタン
+document.getElementById('undoBtn').addEventListener('click', performUndo);
+document.getElementById('redoBtn').addEventListener('click', performRedo);
+
 document.getElementById('googleLogin').addEventListener('click', async () => {
   const errEl = document.getElementById('loginError');
   errEl.textContent = '';
@@ -1546,15 +1724,12 @@ document.getElementById('googleLogin').addEventListener('click', async () => {
 });
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   if (myCursorRef) { try { await remove(myCursorRef); } catch(e){} }
-  // 停止中の音声
   Object.values(activeSounds).forEach(a => { try { a.pause(); } catch(e){} });
   await signOut(auth);
   location.reload();
 });
 
-// 中央へ移動ボタン
 document.getElementById('resetViewBtn').addEventListener('click', () => {
-  // 全要素の中心にスクロール
   const els = Object.values(elements);
   if (els.length === 0) {
     canvasWrap.scrollTo({
@@ -1641,9 +1816,12 @@ function joinRoom(id) {
   canvas.querySelectorAll('.element, .remote-cursor, .cursor-bubble, .group-indicator').forEach(el => el.remove());
   elements = {}; elementRefs = {}; groups = {}; groupIndicators = {};
   usersEl.innerHTML = '';
-  // 停止中の音声を停止
   Object.values(activeSounds).forEach(a => { try { a.pause(); } catch(e){} });
   activeSounds = {};
+  // 履歴クリア
+  undoStack.length = 0;
+  redoStack.length = 0;
+  updateUndoButtons();
 
   roomId = id;
   statusEl.textContent = `📁 ${roomId}  |  ${currentUser.displayName || currentUser.email}`;
@@ -1747,7 +1925,7 @@ function joinRoom(id) {
   if (settings.autoChat) toggleChat(true);
 }
 
-// ============ マウスダウン ============
+// ============ マウス操作 ============
 canvas.addEventListener('mousedown', (e) => {
   if (!currentUser) return;
   if (e.target === canvas || e.target.id === 'selectionRect') {
@@ -1780,7 +1958,6 @@ canvas.addEventListener('mousedown', (e) => {
   }
 });
 
-// ============ マウス移動 ============
 canvas.addEventListener('mousemove', e => {
   if (!currentUser) return;
   const rect = canvas.getBoundingClientRect();
@@ -1828,7 +2005,7 @@ canvas.addEventListener('mousemove', e => {
       const mel = elements[mid];
       const mStart = dragStartPositions[mid];
       if (!mdom || !mel || !mStart) return;
-      if (!canMove(mel)) return; // ロックされている要素は動かさない
+      if (!canMove(mel)) return;
       mdom.style.left = (mStart.x + dx) + 'px';
       mdom.style.top = (mStart.y + dy) + 'px';
     });
@@ -1892,7 +2069,7 @@ function updateGroupIndicatorsForMembers(memberIds) {
   });
 }
 
-// ============ マウスアップ ============
+// ============ マウスアップ (Undo 記録付き) ============
 document.addEventListener('mouseup', async (e) => {
   if (isSelecting) {
     const rect = canvas.getBoundingClientRect();
@@ -1921,42 +2098,52 @@ document.addEventListener('mouseup', async (e) => {
     selectionRect.classList.remove('show');
   }
 
+  // ドラッグ移動のUndo記録
   if (isDragging && currentDragId) {
     const targetIds = dragGroupMembers && dragGroupMembers.length > 0
       ? dragGroupMembers
       : (selectedIds.size > 1 && selectedIds.has(currentDragId)
           ? Array.from(selectedIds)
           : [currentDragId]);
-    const updates = {};
+
+    const changes = [];
     targetIds.forEach(mid => {
       const dom = elementRefs[mid];
       const mel = elements[mid];
-      if (dom && mel && canMove(mel)) {
-        updates[`elements/${mid}/x`] = parseInt(dom.style.left);
-        updates[`elements/${mid}/y`] = parseInt(dom.style.top);
+      const mStart = dragStartPositions[mid];
+      if (!dom || !mel || !mStart) return;
+      if (!canMove(mel)) return;
+      const nx = parseInt(dom.style.left);
+      const ny = parseInt(dom.style.top);
+      if (nx !== mStart.x || ny !== mStart.y) {
+        changes.push({
+          id: mid,
+          before: { x: mStart.x, y: mStart.y },
+          after: { x: nx, y: ny }
+        });
       }
     });
-    if (Object.keys(updates).length > 0) {
-      try {
-        await update(ref(db, `rooms/${roomId}`), updates);
-      } catch(err) {
-        for (const mid of targetIds) {
-          const dom = elementRefs[mid];
-          const mel = elements[mid];
-          if (dom && mel && canMove(mel)) {
-            await update(ref(db, `rooms/${roomId}/elements/${mid}`), {
-              x: parseInt(dom.style.left), y: parseInt(dom.style.top)
-            }).catch(()=>{});
-          }
-        }
+
+    if (changes.length > 0) {
+      // 実際にDBへ保存
+      for (const c of changes) {
+        await update(ref(db, `rooms/${roomId}/elements/${c.id}`), c.after).catch(()=>{});
       }
+      // Undo記録
+      pushUndo({
+        type: 'multi',
+        changes: changes
+      });
     }
+
     Object.values(elementRefs).forEach(d => d.classList.remove('dragging'));
     dragGroupMembers = null;
     dragStartPositions = {};
   }
+
+  // リサイズのUndo記録
   if (resizeState) {
-    const { id, newW, newH, newX, newY } = resizeState;
+    const { id, newW, newH, newX, newY, origW, origH, origX, origY } = resizeState;
     const sel = elements[id];
     if (newW && newH && canMove(sel)) {
       await update(ref(db, `rooms/${roomId}/elements/${id}`), {
@@ -1965,6 +2152,12 @@ document.addEventListener('mouseup', async (e) => {
         x: Math.round(newX),
         y: Math.round(newY)
       }).catch(()=>{});
+      pushUndo({
+        type: 'resize',
+        elementId: id,
+        before: { width: Math.round(origW), height: Math.round(origH), x: Math.round(origX), y: Math.round(origY) },
+        after: { width: Math.round(newW), height: Math.round(newH), x: Math.round(newX), y: Math.round(newY) }
+      });
     }
   }
   isDragging = false;
@@ -2001,6 +2194,8 @@ function createElementDOM(id, el) {
   div.appendChild(nameLabel);
   if (el.name) div.classList.add('show-name');
   if (el.hideName) div.classList.add('hide-name');
+  // 本人ビュー用クラス（自分が編集者の場合、hide-name 中でも薄く名前を見せる）
+  if (el.authorUid === currentUser.uid) div.classList.add('owner-view');
 
   if (hasCode) {
     div.classList.add('has-script');
@@ -2099,10 +2294,13 @@ function createElementDOM(id, el) {
   const del = document.createElement('div');
   del.className = 'delete-btn';
   del.textContent = '×';
-  del.addEventListener('click', (e) => {
+  del.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (isElementLocked(el)) { showHint('🔒 ロック中'); return; }
-    if (confirm('削除しますか？')) remove(ref(db, `rooms/${roomId}/elements/${id}`));
+    if (!confirm('削除しますか？')) return;
+    // Undo記録
+    pushUndo({ type: 'delete', items: [{ id, data: JSON.parse(JSON.stringify(el)) }] });
+    await remove(ref(db, `rooms/${roomId}/elements/${id}`)).catch(()=>{});
   });
   div.appendChild(del);
 
@@ -2272,17 +2470,27 @@ function onElementDblClick(e) {
   if (!['sticky','text','comment'].includes(el.type)) return;
   if (div.contentEditable === 'true') return;
   e.stopPropagation();
+  const beforeContent = el.content || '';
   div.contentEditable = 'true';
   div.focus();
   const range = document.createRange();
   range.selectNodeContents(div);
   const sel = window.getSelection();
   sel.removeAllRanges(); sel.addRange(range);
-  const finish = () => {
+  const finish = async () => {
     div.contentEditable = 'false';
     div.removeEventListener('blur', finish);
     div.removeEventListener('keydown', onKey);
-    update(ref(db, `rooms/${roomId}/elements/${id}`), { content: div.textContent }).catch(()=>{});
+    const newContent = div.textContent;
+    if (newContent !== beforeContent) {
+      pushUndo({
+        type: 'update',
+        elementId: id,
+        before: { content: beforeContent },
+        after: { content: newContent }
+      });
+      await update(ref(db, `rooms/${roomId}/elements/${id}`), { content: newContent }).catch(()=>{});
+    }
   };
   const onKey = (ev) => {
     if (ev.key === 'Escape') { ev.preventDefault(); div.blur(); }
@@ -2421,9 +2629,19 @@ function showGroupPropPanel(gid) {
   ungroupBtn.textContent = '🔓 解除';
   ungroupBtn.addEventListener('click', async () => {
     if (!confirm(`グループ「${g.name}」を解除しますか？`)) return;
+    const afterElements = {};
     for (const mid of (g.members || [])) {
+      afterElements[mid] = { groupId: null };
       await remove(ref(db, `rooms/${roomId}/elements/${mid}/groupId`));
     }
+    // Undo用記録
+    pushUndo({
+      type: 'ungroup',
+      groupId: gid,
+      groupData: JSON.parse(JSON.stringify(g)),
+      beforeElements: Object.fromEntries((g.members || []).map(mid => [mid, { groupId: gid }])),
+      afterElements
+    });
     await remove(ref(db, `rooms/${roomId}/groups/${gid}`));
     clearGroupSelection();
     propPanel.classList.remove('show');
@@ -2438,11 +2656,15 @@ function showGroupPropPanel(gid) {
   delBtn.style.borderColor = '#c0392b';
   delBtn.addEventListener('click', async () => {
     if (!confirm(`グループ「${g.name}」を全削除しますか？`)) return;
+    const items = [];
     for (const mid of (g.members || [])) {
       const el = elements[mid];
       if (el && isElementLocked(el)) continue;
+      if (el) items.push({ id: mid, data: JSON.parse(JSON.stringify(el)) });
       await remove(ref(db, `rooms/${roomId}/elements/${mid}`));
     }
+    items.push({ id: gid, data: JSON.parse(JSON.stringify(g)), isGroup: true });
+    pushUndo({ type: 'delete', items });
     await remove(ref(db, `rooms/${roomId}/groups/${gid}`));
     clearGroupSelection();
     propPanel.classList.remove('show');
@@ -2475,7 +2697,6 @@ function showPropPanel() {
   const isShapeType = ['rect','circle','triangle','arrow'].includes(el.type);
   const isSticky = el.type === 'sticky';
   const isStamp = el.type === 'stamp';
-  const canEditThis = isOwner || !el.locked;
 
   const gName = document.createElement('div');
   gName.className = 'pp-group';
@@ -2489,8 +2710,15 @@ function showPropPanel() {
   if (!locked) {
     nameInput.addEventListener('change', () => {
       const v = nameInput.value.trim();
-      if (v) update(ref(db, `rooms/${roomId}/elements/${id}`), { name: v });
-      else remove(ref(db, `rooms/${roomId}/elements/${id}/name`));
+      const before = { name: el.name || null };
+      if (v) {
+        const after = { name: v };
+        updateWithUndo(id, before, after);
+      } else {
+        const after = { name: null };
+        pushUndo({ type: 'update', elementId: id, before, after });
+        remove(ref(db, `rooms/${roomId}/elements/${id}/name`));
+      }
     });
   }
   gName.appendChild(nameInput);
@@ -2523,7 +2751,6 @@ function showPropPanel() {
     propPanel.appendChild(gInfo);
   }
 
-  // ロック（本人のみ操作可能）
   const gLock = document.createElement('div');
   gLock.className = 'pp-group';
   const lockBtn = document.createElement('button');
@@ -2535,20 +2762,22 @@ function showPropPanel() {
     lockBtn.title = '本人のみ変更可能';
   } else {
     lockBtn.textContent = el.locked ? '🔒 ロック中（クリックで解除）' : '🔓 ロックする';
-    lockBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { locked: !el.locked }));
+    lockBtn.addEventListener('click', () => {
+      updateWithUndo(id, { locked: !!el.locked }, { locked: !el.locked });
+    });
   }
   gLock.appendChild(lockBtn);
   propPanel.appendChild(gLock);
 
-  // 名前表示切替（本人のみ）
+  // 名前表示切替（本人のみ）— 本体には影響しない
   if (isOwner) {
     const gNameShow = document.createElement('div');
     gNameShow.className = 'pp-group';
     const nameShowBtn = document.createElement('button');
     nameShowBtn.textContent = el.hideName ? '👁 名前を表示' : '🙈 名前を隠す';
-    nameShowBtn.title = '名前ラベルの表示/非表示（自分のみ）';
+    nameShowBtn.title = '名前ラベルだけを非表示にします（本体は残ります）';
     nameShowBtn.addEventListener('click', () => {
-      update(ref(db, `rooms/${roomId}/elements/${id}`), { hideName: !el.hideName });
+      updateWithUndo(id, { hideName: !!el.hideName }, { hideName: !el.hideName });
     });
     gNameShow.appendChild(nameShowBtn);
     propPanel.appendChild(gNameShow);
@@ -2573,7 +2802,6 @@ function showPropPanel() {
     gScript.appendChild(codeBtn);
     propPanel.appendChild(gScript);
 
-    // レイヤー配置
     const gLayer = document.createElement('div');
     gLayer.className = 'pp-group';
     gLayer.innerHTML = `<label>配置</label>`;
@@ -2602,7 +2830,22 @@ function showPropPanel() {
       const input = document.createElement('input');
       input.type = 'color';
       input.value = rgbToHex((isSticky || isShapeType) ? (el.color || '#0d99ff') : (el.color || '#222222'));
-      input.addEventListener('input', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { color: input.value }));
+      // 色変更は連続するので、input（ドラッグ中）は変更のみ、change（確定）で Undo 記録
+      input.addEventListener('input', () => {
+        update(ref(db, `rooms/${roomId}/elements/${id}`), { color: input.value }).catch(()=>{});
+      });
+      let beforeColor = input.value;
+      input.addEventListener('focus', () => { beforeColor = input.value; });
+      input.addEventListener('change', () => {
+        if (beforeColor !== input.value) {
+          pushUndo({
+            type: 'update',
+            elementId: id,
+            before: { color: beforeColor },
+            after: { color: input.value }
+          });
+        }
+      });
       g.appendChild(input);
       propPanel.appendChild(g);
     }
@@ -2615,12 +2858,25 @@ function showPropPanel() {
       input.type = 'number';
       input.min = 8; input.max = 200;
       input.value = el.fontSize || (isStamp ? 60 : 14);
-      input.addEventListener('input', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { fontSize: parseInt(input.value) }));
+      let beforeSize = input.value;
+      input.addEventListener('focus', () => { beforeSize = input.value; });
+      input.addEventListener('input', () => {
+        update(ref(db, `rooms/${roomId}/elements/${id}`), { fontSize: parseInt(input.value) }).catch(()=>{});
+      });
+      input.addEventListener('change', () => {
+        if (beforeSize !== input.value) {
+          pushUndo({
+            type: 'update',
+            elementId: id,
+            before: { fontSize: parseInt(beforeSize) },
+            after: { fontSize: parseInt(input.value) }
+          });
+        }
+      });
       g.appendChild(input);
       propPanel.appendChild(g);
     }
 
-    // フォントの太さ（テキスト系のみ）
     if (!hasCode && isTextType) {
       const gWeight = document.createElement('div');
       gWeight.className = 'pp-group';
@@ -2646,13 +2902,12 @@ function showPropPanel() {
       });
       weightSelect.value = el.fontWeight || (el.bold ? 700 : 400);
       weightSelect.addEventListener('change', () => {
-        update(ref(db, `rooms/${roomId}/elements/${id}`), { fontWeight: parseInt(weightSelect.value) });
+        updateWithUndo(id, { fontWeight: el.fontWeight || 400 }, { fontWeight: parseInt(weightSelect.value) });
       });
       gWeight.appendChild(weightSelect);
       propPanel.appendChild(gWeight);
     }
 
-    // 太字・斜体（旧来のもの）
     if (!hasCode && isTextType) {
       const g = document.createElement('div');
       g.className = 'pp-group';
@@ -2661,13 +2916,17 @@ function showPropPanel() {
       boldBtn.style.fontWeight = 'bold';
       if (el.bold) boldBtn.classList.add('active');
       boldBtn.title = '太字切替';
-      boldBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { bold: !el.bold }));
+      boldBtn.addEventListener('click', () => {
+        updateWithUndo(id, { bold: !!el.bold }, { bold: !el.bold });
+      });
       const italicBtn = document.createElement('button');
       italicBtn.textContent = 'I';
       italicBtn.style.fontStyle = 'italic';
       if (el.italic) italicBtn.classList.add('active');
       italicBtn.title = '斜体切替';
-      italicBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { italic: !el.italic }));
+      italicBtn.addEventListener('click', () => {
+        updateWithUndo(id, { italic: !!el.italic }, { italic: !el.italic });
+      });
       g.appendChild(boldBtn);
       g.appendChild(italicBtn);
       propPanel.appendChild(g);
@@ -2677,7 +2936,9 @@ function showPropPanel() {
     gVis.className = 'pp-group';
     const visBtn = document.createElement('button');
     visBtn.textContent = el.visible === false ? '👁 表示' : '👁 隠す';
-    visBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { visible: el.visible === false ? true : false }));
+    visBtn.addEventListener('click', () => {
+      updateWithUndo(id, { visible: el.visible === false }, { visible: el.visible !== false });
+    });
     gVis.appendChild(visBtn);
     propPanel.appendChild(gVis);
 
@@ -2695,6 +2956,7 @@ function showPropPanel() {
       copy.authorUid = currentUser.uid;
       copy.author = currentUser.displayName || currentUser.email;
       copy.locked = false;
+      pushUndo({ type: 'add', items: [{ id: newId, data: JSON.parse(JSON.stringify(copy)) }] });
       await set(ref(db, `rooms/${roomId}/elements/${newId}`), copy);
     });
     gDup.appendChild(dupBtn);
@@ -2727,11 +2989,14 @@ function showMultiSelectPanel() {
   delBtn.style.borderColor = '#c0392b';
   delBtn.addEventListener('click', async () => {
     if (!confirm(`${ids.length}個を削除しますか？`)) return;
+    const items = [];
     for (const id of ids) {
       const el = elements[id];
       if (el && isElementLocked(el)) continue;
+      if (el) items.push({ id, data: JSON.parse(JSON.stringify(el)) });
       await remove(ref(db, `rooms/${roomId}/elements/${id}`));
     }
+    if (items.length > 0) pushUndo({ type: 'delete', items });
     clearSelection();
   });
   gGroup.appendChild(delBtn);
@@ -2761,6 +3026,7 @@ async function alignElements(mode) {
     maxX = Math.max(maxX, el.x + size.w);
     maxY = Math.max(maxY, el.y + size.h);
   });
+  const changes = [];
   for (const id of ids) {
     const el = elements[id];
     if (!el || !canMove(el)) continue;
@@ -2772,7 +3038,16 @@ async function alignElements(mode) {
     if (mode === 'top') newY = minY;
     if (mode === 'bottom') newY = maxY - size.h;
     if (mode === 'center-v') newY = (minY + maxY) / 2 - size.h / 2;
-    await update(ref(db, `rooms/${roomId}/elements/${id}`), { x: Math.round(newX), y: Math.round(newY) });
+    const nx = Math.round(newX), ny = Math.round(newY);
+    if (nx !== el.x || ny !== el.y) {
+      changes.push({ id, before: { x: el.x, y: el.y }, after: { x: nx, y: ny } });
+    }
+  }
+  if (changes.length > 0) {
+    for (const c of changes) {
+      await update(ref(db, `rooms/${roomId}/elements/${c.id}`), c.after).catch(()=>{});
+    }
+    pushUndo({ type: 'multi', changes });
   }
 }
 
@@ -2807,12 +3082,26 @@ document.getElementById('gmSave').addEventListener('click', async () => {
   const ids = Array.from(selectedIds);
   if (ids.length < 2) return;
   const gid = newGroupId();
-  for (const id of ids) await update(ref(db, `rooms/${roomId}/elements/${id}`), { groupId: gid });
-  await set(ref(db, `rooms/${roomId}/groups/${gid}`), {
+  const groupData = {
     name, members: ids,
     author: currentUser.displayName || currentUser.email,
     authorUid: currentUser.uid,
     createdAt: Date.now()
+  };
+  const beforeElements = {};
+  const afterElements = {};
+  for (const id of ids) {
+    beforeElements[id] = { groupId: null };
+    afterElements[id] = { groupId: gid };
+    await update(ref(db, `rooms/${roomId}/elements/${id}`), { groupId: gid });
+  }
+  await set(ref(db, `rooms/${roomId}/groups/${gid}`), groupData);
+  pushUndo({
+    type: 'group',
+    groupId: gid,
+    groupData,
+    beforeElements,
+    afterElements
   });
   groupModal.classList.remove('show');
   addLog('event', `📦 グループ「${name}」作成`);
@@ -2966,15 +3255,12 @@ function updateVisualPreview() {
     el.addEventListener('input', updateVisualPreview);
   }
 });
-// 音量ラベル
 document.getElementById('vsSoundVolume').addEventListener('input', (e) => {
   document.getElementById('vsSoundVolLabel').textContent = e.target.value + '%';
 });
-// ファイル選択
 document.getElementById('vsSoundFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  // 4MB以下はBASE64で保存
   if (file.size > 4 * 1024 * 1024) {
     showHint('⚠️ ファイルが大きすぎます（4MB以下）');
     return;
@@ -3003,10 +3289,34 @@ document.getElementById('vsSave').addEventListener('click', async () => {
     soundMode: document.getElementById('vsSoundMode').value
   };
   if (editingActionGroupId) {
-    await update(ref(db, `rooms/${roomId}/groups/${editingActionGroupId}`), { action });
+    const g = groups[editingActionGroupId];
+    pushUndo({
+      type: 'update',
+      isGroupAction: true,
+      elementId: editingActionGroupId,
+      before: { action: g.action || null },
+      after: { action }
+    });
+    // グループアクション用の適用（updateではなくグループへ）
+    if (g.action) {
+      await set(ref(db, `rooms/${roomId}/groups/${editingActionGroupId}/action`), action);
+    } else {
+      await set(ref(db, `rooms/${roomId}/groups/${editingActionGroupId}/action`), action);
+    }
     showHint('🎯 グループ動作を保存');
   } else if (editingActionId) {
-    await update(ref(db, `rooms/${roomId}/elements/${editingActionId}`), { action });
+    const el = elements[editingActionId];
+    pushUndo({
+      type: 'update',
+      elementId: editingActionId,
+      before: { action: el.action || null },
+      after: { action }
+    });
+    if (el.action) {
+      await set(ref(db, `rooms/${roomId}/elements/${editingActionId}/action`), action);
+    } else {
+      await set(ref(db, `rooms/${roomId}/elements/${editingActionId}/action`), action);
+    }
     if (elementRefs[editingActionId]) {
       elementRefs[editingActionId].remove();
       elementRefs[editingActionId] = createElementDOM(editingActionId, elements[editingActionId]);
@@ -3021,8 +3331,23 @@ document.getElementById('vsRemove').addEventListener('click', async () => {
   if (!editingActionId && !editingActionGroupId) return;
   if (!confirm('動作設定を削除しますか？')) return;
   if (editingActionGroupId) {
+    const g = groups[editingActionGroupId];
+    pushUndo({
+      type: 'update',
+      isGroupAction: true,
+      elementId: editingActionGroupId,
+      before: { action: g.action || null },
+      after: { action: null }
+    });
     await remove(ref(db, `rooms/${roomId}/groups/${editingActionGroupId}/action`));
   } else if (editingActionId) {
+    const el = elements[editingActionId];
+    pushUndo({
+      type: 'update',
+      elementId: editingActionId,
+      before: { action: el.action || null },
+      after: { action: null }
+    });
     await remove(ref(db, `rooms/${roomId}/elements/${editingActionId}/action`));
     if (elementRefs[editingActionId]) {
       elementRefs[editingActionId].remove();
@@ -3047,12 +3372,10 @@ async function runGroupAction(gid, triggerType) {
   await executeAction(g.action, repId, g);
 }
 
-// ============ 音声再生 ============
 function playActionSound(soundUrl, volume, mode, elementId) {
   if (!soundUrl) return;
   try {
     if (mode === 'stop') {
-      // 停止
       if (activeSounds[elementId]) {
         activeSounds[elementId].pause();
         activeSounds[elementId].currentTime = 0;
@@ -3060,7 +3383,6 @@ function playActionSound(soundUrl, volume, mode, elementId) {
       }
       return;
     }
-    // 既存の音声を停止
     if (activeSounds[elementId]) {
       activeSounds[elementId].pause();
       activeSounds[elementId].currentTime = 0;
@@ -3073,7 +3395,6 @@ function playActionSound(soundUrl, volume, mode, elementId) {
       showHint('⚠️ 音声の再生に失敗しました（クリックが必要かも）');
     });
     activeSounds[elementId] = audio;
-    // 1回再生の場合は終了時に削除
     if (mode === 'once') {
       audio.addEventListener('ended', () => {
         delete activeSounds[elementId];
@@ -3092,7 +3413,6 @@ async function executeAction(a, selfId, group) {
     return;
   }
   if (a.action === 'playSound') {
-    // 音声はサウンドURLをそのまま再生
     playActionSound(a.soundUrl, a.soundVolume, a.soundMode, selfId || 'group_' + (group ? group.members[0] : ''));
     addLog('event', `🔊 音楽を再生`);
     return;
@@ -3175,17 +3495,23 @@ document.getElementById('codeClose2').addEventListener('click', closeCodeEditor)
 document.getElementById('codeSave').addEventListener('click', async () => {
   if (!editingCodeId || !roomId) return;
   editingCodeData[currentCodeTab] = codeTextarea.value;
-  await update(ref(db, `rooms/${roomId}/elements/${editingCodeId}`), {
+  const el = elements[editingCodeId];
+  const before = { code: el.code || null, width: el.width || null, height: el.height || null };
+  const after = {
     code: editingCodeData,
-    width: elements[editingCodeId].width || 240,
-    height: elements[editingCodeId].height || 160
-  });
+    width: el.width || 240,
+    height: el.height || 160
+  };
+  pushUndo({ type: 'update', elementId: editingCodeId, before, after });
+  await update(ref(db, `rooms/${roomId}/elements/${editingCodeId}`), after);
   closeCodeEditor();
   showHint('⚡ コード保存');
 });
 document.getElementById('codeRemove').addEventListener('click', async () => {
   if (!editingCodeId || !roomId) return;
   if (!confirm('コードを削除しますか？')) return;
+  const el = elements[editingCodeId];
+  pushUndo({ type: 'update', elementId: editingCodeId, before: { code: el.code || null }, after: { code: null } });
   await remove(ref(db, `rooms/${roomId}/elements/${editingCodeId}/code`));
   closeCodeEditor();
 });
@@ -3251,7 +3577,6 @@ ${code.html || ''}
 function applyTextStyle(dom, el) {
   if (el.fontSize) dom.style.fontSize = el.fontSize + 'px';
   if (el.color) dom.style.color = el.color;
-  // fontWeight 優先、なければ bold
   if (el.fontWeight) {
     dom.style.fontWeight = el.fontWeight;
   } else if (el.bold) {
@@ -3278,7 +3603,11 @@ function updateElementDOM(id, el) {
     dom.classList.toggle('faded', el.opacity < 0.3);
   }
   dom.classList.toggle('locked', !!el.locked);
-  dom.classList.toggle('hide-name', !!el.hideName);
+  // 名前表示クラスは本体に影響しない
+  if (el.hideName) dom.classList.add('hide-name');
+  else dom.classList.remove('hide-name');
+  if (el.authorUid === currentUser.uid) dom.classList.add('owner-view');
+  else dom.classList.remove('owner-view');
 
   const nameLabel = dom.querySelector('.name-label');
   if (nameLabel) {
@@ -3334,7 +3663,6 @@ function updateElementDOM(id, el) {
 // 要素追加
 async function addElement(type, opts = {}) {
   if (!roomId) return;
-  // 画面中央付近に配置
   const centerX = canvasWrap.scrollLeft + canvasWrap.clientWidth / 2;
   const centerY = canvasWrap.scrollTop + canvasWrap.clientHeight / 2;
   const cx = centerX - 80 + (Math.random() - 0.5) * 200;
@@ -3404,6 +3732,8 @@ async function addElement(type, opts = {}) {
   }
   if (autoName && autoName.trim()) payload.name = autoName.trim();
   const newRef = push(ref(db, `rooms/${roomId}/elements`));
+  const newId = newRef.key;
+  pushUndo({ type: 'add', items: [{ id: newId, data: JSON.parse(JSON.stringify(payload)) }] });
   await set(newRef, payload);
   const label = payload.name || TYPE_LABEL[payload.type] || payload.type;
   addLog('event', `✨ 「${label}」を (${payload.x}, ${payload.y}) に追加`);
@@ -3469,6 +3799,15 @@ async function executeCommand(id) {
       break;
     case 'clear':
       if (confirm('全要素を削除しますか？')) {
+        // Undo記録
+        const items = [];
+        for (const [id, el] of Object.entries(elements)) {
+          items.push({ id, data: JSON.parse(JSON.stringify(el)) });
+        }
+        for (const [gid, g] of Object.entries(groups)) {
+          items.push({ id: gid, data: JSON.parse(JSON.stringify(g)), isGroup: true });
+        }
+        if (items.length > 0) pushUndo({ type: 'delete', items });
         remove(ref(db, `rooms/${roomId}/elements`));
         remove(ref(db, `rooms/${roomId}/groups`));
       }
@@ -3523,10 +3862,26 @@ document.getElementById('logClear').addEventListener('click', () => {
 });
 document.getElementById('logBtn').addEventListener('click', () => scriptLog.classList.toggle('show'));
 
-// キーボード
+// ============ キーボード ============
 document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase();
   const inEditable = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
+
+  // Undo / Redo (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y)
+  if ((e.ctrlKey || e.metaKey) && !inEditable) {
+    if (e.key === 'z' || e.key === 'Z') {
+      e.preventDefault();
+      if (e.shiftKey) performRedo();
+      else performUndo();
+      return;
+    }
+    if (e.key === 'y' || e.key === 'Y') {
+      e.preventDefault();
+      performRedo();
+      return;
+    }
+  }
+
   if (settingsModal.classList.contains('show')) {
     if (e.key === 'Escape') { e.preventDefault(); settingsModal.classList.remove('show'); }
     return;
@@ -3568,10 +3923,16 @@ document.addEventListener('keydown', (e) => {
     if (selectedGroupId) {
       const g = groups[selectedGroupId];
       if (g && confirm(`グループ「${g.name}」を全削除しますか？`)) {
+        const items = [];
         (g.members || []).forEach(mid => {
           const el = elements[mid];
-          if (el && !isElementLocked(el)) remove(ref(db, `rooms/${roomId}/elements/${mid}`));
+          if (el && !isElementLocked(el)) {
+            items.push({ id: mid, data: JSON.parse(JSON.stringify(el)) });
+            remove(ref(db, `rooms/${roomId}/elements/${mid}`));
+          }
         });
+        items.push({ id: selectedGroupId, data: JSON.parse(JSON.stringify(g)), isGroup: true });
+        pushUndo({ type: 'delete', items });
         remove(ref(db, `rooms/${roomId}/groups/${selectedGroupId}`));
         clearGroupSelection();
         propPanel.classList.remove('show');
@@ -3580,11 +3941,14 @@ document.addEventListener('keydown', (e) => {
     }
     const ids = Array.from(selectedIds);
     if (!confirm(ids.length > 1 ? `${ids.length}個を削除？` : '削除しますか？')) return;
+    const items = [];
     ids.forEach(id => {
       const el = elements[id];
       if (el && isElementLocked(el)) return;
+      if (el) items.push({ id, data: JSON.parse(JSON.stringify(el)) });
       remove(ref(db, `rooms/${roomId}/elements/${id}`));
     });
+    if (items.length > 0) pushUndo({ type: 'delete', items });
     clearSelection();
     propPanel.classList.remove('show');
     return;
@@ -3739,6 +4103,7 @@ async function pasteImage(dataUrl) {
     authorUid: currentUser.uid
   };
   if (name && name.trim()) payload.name = name.trim();
+  pushUndo({ type: 'add', items: [{ id: newId, data: JSON.parse(JSON.stringify(payload)) }] });
   await set(ref(db, `rooms/${roomId}/elements/${newId}`), payload);
   addLog('event', `🖼 画像を追加`);
 }
@@ -3813,11 +4178,19 @@ document.getElementById('slashBtn').addEventListener('click', (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
   showSlashMenu(rect.left, rect.bottom + 6);
 });
-document.getElementById('clearBtn').addEventListener('click', () => {
+document.getElementById('clearBtn').addEventListener('click', async () => {
   if (!roomId) return;
   if (!confirm('全要素を削除しますか？')) return;
-  remove(ref(db, `rooms/${roomId}/elements`));
-  remove(ref(db, `rooms/${roomId}/groups`));
+  const items = [];
+  for (const [id, el] of Object.entries(elements)) {
+    items.push({ id, data: JSON.parse(JSON.stringify(el)) });
+  }
+  for (const [gid, g] of Object.entries(groups)) {
+    items.push({ id: gid, data: JSON.parse(JSON.stringify(g)), isGroup: true });
+  }
+  if (items.length > 0) pushUndo({ type: 'delete', items });
+  await remove(ref(db, `rooms/${roomId}/elements`));
+  await remove(ref(db, `rooms/${roomId}/groups`));
 });
 document.getElementById('joinBtn').addEventListener('click', () => {
   const id = document.getElementById('roomInput').value.trim() || 'default';
@@ -3889,6 +4262,7 @@ function renderAdminPanel() {
 
 applySettings();
 console.log('%c🎨 FigmaDG', 'color:#0d99ff;font-size:20px;font-weight:bold');
+console.log('Ctrl+Z: 元に戻す | Ctrl+Shift+Z: やり直す');
 </script>
 </body>
 </html>
