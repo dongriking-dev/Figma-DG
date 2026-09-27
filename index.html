@@ -56,18 +56,6 @@
     min-width: 130px; text-align: center;
   }
   #toolbar .sep { border-left: 1px solid #555; height: 20px; margin: 0 4px; }
-  #toolbar .tool-group {
-    display: flex; gap: 2px;
-    background: #232323;
-    padding: 2px; border-radius: 5px;
-    border: 1px solid #3a3a3a;
-  }
-  #toolbar .tool-group button {
-    border: none; background: transparent;
-    padding: 5px 10px; border-radius: 3px;
-  }
-  #toolbar .tool-group button.active { background: #0d99ff; }
-  #toolbar .tool-group button:hover:not(.active) { background: #3a3a3a; }
 
   #main { flex: 1; display: flex; overflow: hidden; position: relative; }
 
@@ -80,10 +68,7 @@
     touch-action: none;
   }
   #canvas.no-grid { background-image: none; }
-  #canvas.mode-select { cursor: default; }
-  #canvas.mode-pen { cursor: crosshair; }
-  #canvas.mode-eraser { cursor: crosshair; }
-  #canvas.mode-select.selecting { cursor: crosshair; }
+  #canvas.selecting { cursor: crosshair; }
 
   #canvas .selection-rect {
     position: absolute;
@@ -95,28 +80,11 @@
   }
   #canvas .selection-rect.show { display: block; }
 
-  /* SVGレイヤー: pointer-events を none にして、path のみ拾う */
-  #drawLayer {
-    position: absolute; inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    width: 100%; height: 100%;
-  }
-  #drawLayer path {
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    pointer-events: stroke;
-    cursor: pointer;
-  }
-  #drawLayer path.erasable { pointer-events: stroke; }
-  #drawLayer path.drawing { pointer-events: none; }
-
   /* ===== 要素 ===== */
   .element {
     position: absolute; user-select: none;
     transition: box-shadow 0.15s;
-    will-change: left, top;
+    /* 重要: 位置変更時にtransitionを付けない（追従遅延を防止） */
   }
   .element:hover:not(.has-script):not(.locked) {
     box-shadow: 0 0 0 2px rgba(13,153,255,0.3);
@@ -142,11 +110,6 @@
   }
   .element.hidden-element { display: none !important; }
   .element.faded { opacity: 0.2 !important; }
-
-  /* ドラッグ中は transition を無効化（追随を防止） */
-  .element.dragging {
-    transition: none !important;
-  }
 
   .element.has-script {
     padding: 0 !important;
@@ -260,7 +223,6 @@
     border-radius: 6px;
     pointer-events: none;
     z-index: 9500;
-    transition: all 0.2s;
   }
   .group-indicator .group-tag {
     position: absolute;
@@ -517,7 +479,7 @@
   .modal-foot .actions button:hover { filter: brightness(1.15); }
 
   #codeTextarea {
-    width: 100%; min-height: 280px;
+    width: 100%; min-height: 300px;
     background: #1a1a1a; color: #d4d4d4;
     border: 1px solid #444; border-radius: 6px;
     padding: 12px; font-family: "Consolas", "Monaco", monospace;
@@ -527,20 +489,22 @@
   #codeTextarea:focus { border-color: #0d99ff; }
   .code-help {
     font-size: 12px; color: #888; margin-bottom: 12px;
-    background: #1a1a1a; padding: 10px 12px;
+    background: #1a1a1a; padding: 12px 14px;
     border-radius: 6px; border-left: 3px solid #f39c12;
-    line-height: 1.6;
+    line-height: 1.7;
   }
   .code-help code {
     background: #333; padding: 1px 5px;
     border-radius: 3px; color: #6cc; font-size: 11px;
   }
+  .code-help strong { color: #f39c12; }
   .code-foot .examples { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
   .code-foot .examples button {
     background: #3a3a3a; color: #ccc;
     border: 1px solid #555; padding: 4px 10px;
     border-radius: 4px; font-size: 11px; cursor: pointer;
   }
+  .code-foot .examples button:hover { background: #4a4a4a; color: white; }
 
   #visualScript .vs-section {
     background: #1f1f1f; border-radius: 8px;
@@ -562,7 +526,6 @@
     border: 1px solid #555; border-radius: 4px;
     padding: 6px 10px; font-size: 13px;
     outline: none; min-width: 120px;
-    max-width: 320px;
   }
   #visualScript select:focus, #visualScript input:focus { border-color: #9b59b6; }
   #visualScript .vs-help {
@@ -579,7 +542,6 @@
     border-left: 3px solid #2ecc71;
     margin-top: 8px;
     line-height: 1.6;
-    word-break: break-word;
   }
   #visualScript .vs-preview strong { color: #fff; }
   #visualScript .vs-preview .badge {
@@ -591,7 +553,6 @@
   #visualScript .vs-preview .badge.green { background: #27ae60; }
   #visualScript .vs-preview .badge.blue { background: #0d99ff; }
   #visualScript .vs-preview .badge.orange { background: #f39c12; }
-  #visualScript .vs-preview .badge.red { background: #e74c3c; }
 
   .group-member-list {
     background: #1f1f1f; border-radius: 6px;
@@ -830,24 +791,6 @@
     border-color: #27ae60 !important;
   }
 
-  #penOptions {
-    display: none; align-items: center; gap: 8px;
-    background: #232323; border: 1px solid #3a3a3a;
-    border-radius: 6px; padding: 4px 8px;
-  }
-  #penOptions.show { display: flex; }
-  #penOptions label { font-size: 11px; color: #999; }
-  #penOptions input[type="range"] { width: 80px; }
-  #penOptions input[type="color"] {
-    width: 28px; height: 28px;
-    border: 2px solid #555; border-radius: 4px;
-    cursor: pointer; background: none; padding: 0;
-  }
-  #penOptions .size-label {
-    font-size: 11px; color: #0d99ff;
-    font-family: monospace; min-width: 24px; text-align: center;
-  }
-
   .toggle {
     position: relative; width: 44px; height: 24px;
     background: #444; border-radius: 12px;
@@ -902,19 +845,6 @@
   <input id="roomInput" placeholder="部屋ID" style="width:100px">
   <button id="joinBtn">参加</button>
   <span class="sep"></span>
-  <div class="tool-group">
-    <button id="toolSelect" class="active" title="選択 (V)">🖱 選択</button>
-    <button id="toolPen" title="鉛筆 (P)">✏️ 鉛筆</button>
-    <button id="toolEraser" title="消しゴム (E)">🧽 消しゴム</button>
-  </div>
-  <div id="penOptions">
-    <label>色</label>
-    <input type="color" id="penColor" value="#e74c3c">
-    <label>太さ</label>
-    <input type="range" id="penWidth" min="1" max="30" value="4">
-    <span class="size-label" id="penWidthLabel">4</span>
-  </div>
-  <span class="sep"></span>
   <button id="slashBtn">/ コマンド</button>
   <button id="chatBtn">💬 履歴</button>
   <button id="logBtn" title="ログ">📜 ログ</button>
@@ -931,7 +861,6 @@
 
 <div id="main">
   <div id="canvas">
-    <svg id="drawLayer" xmlns="http://www.w3.org/2000/svg"></svg>
     <div class="selection-rect" id="selectionRect"></div>
     <div id="hint"></div>
     <div id="groupHint"></div>
@@ -949,21 +878,27 @@
 
 <div id="propPanel"></div>
 
+<!-- コードエディタ -->
 <div class="modal" id="codeModal">
   <div class="modal-box">
     <div class="modal-head">
-      <h3>📜 スクリプトエディタ</h3>
+      <h3>📜 コードエディタ</h3>
       <div class="tabs">
         <button data-tab="html" class="active">HTML</button>
         <button data-tab="css">CSS</button>
-        <button data-tab="js">JS</button>
+        <button data-tab="js">JavaScript</button>
       </div>
       <button class="close-btn" id="codeClose">×</button>
     </div>
     <div class="modal-body">
       <div class="code-help">
-        <strong>💡 サンドボックス化されたiframe内で実行されます。</strong><br>
-        <code>parent.postMessage({type:'notify', text:'Hello'}, '*')</code> で通知を送れます。
+        <strong>💡 コードの書き方</strong><br>
+        • <strong>HTML</strong>: 要素の中身を作る（ボタン、テキスト、画像など）<br>
+        • <strong>CSS</strong>: 見た目を整える（色、サイズ、アニメーション）<br>
+        • <strong>JavaScript</strong>: 動きをつける（クリック時の動作など）<br>
+        <br>
+        <strong>⚠️ 注意</strong>: このコードはサンドボックス内で動きます。親ページにはアクセスできません。<br>
+        <strong>通知を送る</strong>: <code>parent.postMessage({type:'notify', text:'Hello'}, '*')</code>
       </div>
       <textarea id="codeTextarea" spellcheck="false"></textarea>
     </div>
@@ -991,107 +926,57 @@
       <button class="close-btn" id="vsClose">×</button>
     </div>
     <div class="modal-body">
-      <div class="vs-help" id="vsHelp"></div>
-
+      <div class="vs-help" id="vsHelp">
+        コードを書かずに動作を設定できます。
+      </div>
       <div class="vs-section">
-        <h4>① トリガー（きっかけ）</h4>
+        <h4>① トリガー</h4>
         <div class="vs-row">
           <label>動作</label>
           <select id="vsTrigger">
-            <option value="click">🖱 クリック時</option>
-            <option value="hover">✨ マウスオーバー時</option>
-            <option value="leave">🚪 マウスが離れた時</option>
-            <option value="dblclick">🖱🖱 ダブルクリック時</option>
-            <option value="rightclick">🖱 右クリック時</option>
-            <option value="load">⏱ 表示された時（自動）</option>
+            <option value="click">クリック時</option>
+            <option value="hover">マウスオーバー時</option>
+            <option value="dblclick">ダブルクリック時</option>
           </select>
         </div>
       </div>
-
       <div class="vs-section">
-        <h4>② アクション（何が起きる？）</h4>
+        <h4>② アクション</h4>
         <div class="vs-row">
           <label>アクション</label>
           <select id="vsAction">
-            <optgroup label="👁 表示・非表示">
-              <option value="show">🎯 対象を表示</option>
-              <option value="hide">🙈 対象を隠す</option>
-              <option value="toggle">🔄 対象の表示/非表示を切替</option>
-              <option value="appear">💫 対象をフェードイン</option>
-              <option value="disappear">💨 対象をフェードアウト</option>
-            </optgroup>
-            <optgroup label="📍 移動・サイズ">
-              <option value="move">📍 対象を指定座標に移動</option>
-              <option value="moveBy">↔ 対象を相対移動</option>
-              <option value="resize">📐 対象のサイズを変更</option>
-            </optgroup>
-            <optgroup label="🎨 見た目">
-              <option value="color">🎨 対象の色を変更</option>
-              <option value="selfColor">🎨 自分自身の色を変更</option>
-            </optgroup>
-            <optgroup label="📝 テキスト">
-              <option value="setText">✏ 対象のテキストを変更</option>
-            </optgroup>
-            <optgroup label="🎬 その他">
-              <option value="notify">💬 メッセージを表示</option>
-              <option value="clone">⧉ 対象を複製</option>
-              <option value="remove">🗑 対象を削除</option>
-              <option value="sendChat">💭 チャットにメッセージ送信</option>
-              <option value="selfToggle">🔄 自分自身の表示/非表示</option>
-              <option value="shake">📳 対象をシェイク</option>
-              <option value="openLink">🔗 URLを開く</option>
-            </optgroup>
+            <option value="show">対象を表示</option>
+            <option value="hide">対象を隠す</option>
+            <option value="toggle">表示/非表示を切替</option>
+            <option value="appear">フェードイン</option>
+            <option value="disappear">フェードアウト</option>
+            <option value="move">指定座標に移動</option>
+            <option value="color">色を変更</option>
+            <option value="notify">メッセージ表示</option>
+            <option value="selfColor">自分自身の色を変更</option>
+            <option value="selfToggle">自分自身の表示/非表示</option>
           </select>
         </div>
-
         <div class="vs-row" id="vsTargetRow">
           <label>対象</label>
           <select id="vsTarget">
             <option value="">（自分自身）</option>
           </select>
         </div>
-
         <div class="vs-row" id="vsCoordRow" style="display:none">
           <label>X座標</label>
           <input type="number" id="vsX" value="100">
           <label style="min-width:auto">Y座標</label>
           <input type="number" id="vsY" value="100">
         </div>
-
-        <div class="vs-row" id="vsDeltaRow" style="display:none">
-          <label>ΔX</label>
-          <input type="number" id="vsDX" value="50">
-          <label style="min-width:auto">ΔY</label>
-          <input type="number" id="vsDY" value="50">
-        </div>
-
-        <div class="vs-row" id="vsSizeRow" style="display:none">
-          <label>幅</label>
-          <input type="number" id="vsW" value="200">
-          <label style="min-width:auto">高さ</label>
-          <input type="number" id="vsH" value="100">
-        </div>
-
         <div class="vs-row" id="vsColorRow" style="display:none">
           <label>色</label>
           <input type="color" id="vsColor" value="#0d99ff" style="width:50px;height:32px;border:2px solid #555;border-radius:6px;background:none;padding:0;cursor:pointer;">
         </div>
-
         <div class="vs-row" id="vsTextRow" style="display:none">
           <label>メッセージ</label>
-          <input type="text" id="vsText" placeholder="Hello!" style="width:100%;max-width:300px;">
+          <input type="text" id="vsText" placeholder="Hello!" style="width:100%;">
         </div>
-
-        <div class="vs-row" id="vsSetTextRow" style="display:none">
-          <label>新しいテキスト</label>
-          <input type="text" id="vsSetText" placeholder="新しいテキスト" style="width:100%;max-width:300px;">
-        </div>
-
-        <div class="vs-row" id="vsLinkRow" style="display:none">
-          <label>URL</label>
-          <input type="text" id="vsLink" placeholder="https://example.com" style="width:100%;max-width:300px;">
-        </div>
-
         <div class="vs-preview" id="vsPreview">🎯 クリック → 対象を表示</div>
       </div>
     </div>
@@ -1105,6 +990,7 @@
   </div>
 </div>
 
+<!-- グループ編集 -->
 <div class="modal" id="groupModal">
   <div class="modal-box narrow">
     <div class="modal-head">
@@ -1119,7 +1005,8 @@
       <p style="font-size:12px;color:#aaa;margin-top:12px;">メンバー:</p>
       <div class="group-member-list" id="gmList"></div>
       <p style="font-size:11px;color:#888;margin-top:10px;line-height:1.6;">
-        💡 グループ化すると、メンバーの1つを移動すると全体が一緒に動きます。
+        💡 グループ化すると、メンバーの1つを移動すると全体が一緒に動きます。<br>
+        💡 グループのタグをクリックすると、グループ全体に動作を設定できます。
       </p>
     </div>
     <div class="modal-foot">
@@ -1131,6 +1018,7 @@
   </div>
 </div>
 
+<!-- 設定 -->
 <div class="modal" id="settingsModal">
   <div class="modal-box narrow">
     <div class="modal-head">
@@ -1266,7 +1154,6 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
-// ============ 設定 ============
 const SETTINGS_KEY = 'figmadg-settings-v4';
 const DEFAULT_SETTINGS = {
   showGrid: true, showRemoteCursors: true, showCoordDisplay: true,
@@ -1285,7 +1172,7 @@ function saveSettings() {
 }
 loadSettings();
 
-// ============ 状態 ============
+// 状態
 let currentUser = null;
 let isAdmin = false;
 let roomId = null;
@@ -1293,16 +1180,14 @@ let elements = {};
 let elementRefs = {};
 let groups = {};
 let groupIndicators = {};
-let strokes = {};
-let strokeRefs = {};
 let myCursorRef = null;
 let unsubscribers = [];
 let banUnsub = null, usersUnsub = null, chatUnsub = null;
 let isDragging = false;
-let dragStart = { x: 0, y: 0 };
-let dragOrigins = {};  // { id: {x, y} } ドラッグ開始時の座標
+let dragOffset = { x: 0, y: 0 };
 let currentDragId = null;
 let dragGroupMembers = null;
+let dragStartPositions = {}; // ドラッグ開始時の各要素の座標を記録
 let resizeState = null;
 let selectedIds = new Set();
 let selectedGroupId = null;
@@ -1318,17 +1203,11 @@ let editingActionData = {};
 let scriptLogLines = [];
 let isSelecting = false;
 let selectionStart = { x: 0, y: 0 };
-let currentTool = 'select';
-let penColor = '#e74c3c';
-let penWidth = 4;
-let isDrawing = false;
-let currentStroke = null;
-let currentStrokeEl = null;
-let drawnStrokeIds = new Set();
+// ドラッグ中のDB更新スロットリング用
+let lastUpdateTime = 0;
+let pendingUpdates = null;
 
-// DOM
 const canvas = document.getElementById('canvas');
-const drawLayer = document.getElementById('drawLayer');
 const selectionRect = document.getElementById('selectionRect');
 const statusEl = document.getElementById('status');
 const usersEl = document.getElementById('users');
@@ -1423,8 +1302,6 @@ function escapeHtml(s) {
 }
 function newElemId() { return 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
 function newGroupId() { return 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
-function newStrokeId() { return 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
-
 function getElementSize(el) {
   if (el.width && el.height) return { w: el.width, h: el.height };
   switch (el.type) {
@@ -1460,6 +1337,7 @@ function applySettings() {
   bgmAudio.volume = (settings.bgmVolume || 50) / 100;
   bgmBtn.classList.toggle('playing', settings.bgmEnabled && !bgmAudio.paused);
 }
+
 function bindToggle(id, key, onChange) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -1504,6 +1382,7 @@ function updateBgmStatus() {
     playBtn.textContent = '⏸';
   }
 }
+
 bindToggle('toggleGrid', 'showGrid');
 bindToggle('toggleCursors', 'showRemoteCursors');
 bindToggle('toggleCoordDisplay', 'showCoordDisplay');
@@ -1588,6 +1467,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   await signOut(auth);
   location.reload();
 });
+
 function showBanScreen() {
   if (isBanned) return;
   isBanned = true;
@@ -1645,9 +1525,7 @@ function joinRoom(id) {
   unsubscribers.forEach(fn => fn());
   unsubscribers = [];
   canvas.querySelectorAll('.element, .remote-cursor, .cursor-bubble, .group-indicator').forEach(el => el.remove());
-  drawLayer.innerHTML = '';
   elements = {}; elementRefs = {}; groups = {}; groupIndicators = {};
-  strokes = {}; strokeRefs = {}; drawnStrokeIds = new Set();
   usersEl.innerHTML = '';
 
   roomId = id;
@@ -1707,12 +1585,7 @@ function joinRoom(id) {
         elementRefs[eid].querySelector('[contenteditable="true"]') === document.activeElement;
       const isNew = !elementRefs[eid];
       const oldEl = elements[eid];
-      // ドラッグ中は座標の更新を無視（追随防止）
-      const isDraggingThis = isDragging && (currentDragId === eid ||
-        (dragGroupMembers && dragGroupMembers.includes(eid)));
-
       elements[eid] = el;
-
       const needsRebuild = isNew || (oldEl && (
         oldEl.type !== el.type ||
         (oldEl.code && !el.code) || (!oldEl.code && el.code) ||
@@ -1723,12 +1596,11 @@ function joinRoom(id) {
         if (elementRefs[eid]) elementRefs[eid].remove();
         elementRefs[eid] = createElementDOM(eid, el);
         canvas.appendChild(elementRefs[eid]);
-        if (isNew && el.authorUid !== currentUser.uid && settings.logEvent) {
+        if (isNew && el.authorUid !== currentUser.uid) {
           const label = el.name || TYPE_LABEL[el.type] || el.type;
           addLog('event', `✨ 「${label}」が (${el.x}, ${el.y}) に現れました`);
         }
-      } else if (!isEditing && !isDraggingThis) {
-        // ドラッグ中でなければ座標を更新
+      } else if (!isEditing) {
         updateElementDOM(eid, el);
       }
     });
@@ -1740,26 +1612,6 @@ function joinRoom(id) {
     groups = snap.val() || {};
     refreshAllGroupIndicators();
     updatePropPanelIfNeeded();
-  }));
-
-  unsubscribers.push(onValue(ref(db, `rooms/${roomId}/strokes`), snap => {
-    const data = snap.val() || {};
-    Object.keys(strokeRefs).forEach(sid => {
-      if (!data[sid]) { strokeRefs[sid].remove(); delete strokeRefs[sid]; delete strokes[sid]; }
-    });
-    Object.entries(data).forEach(([sid, s]) => {
-      strokes[sid] = s;
-      if (s.authorUid === currentUser.uid) drawnStrokeIds.add(sid);
-      if (!strokeRefs[sid]) {
-        strokeRefs[sid] = createStrokePath(sid, s);
-        drawLayer.appendChild(strokeRefs[sid]);
-      } else {
-        // 更新
-        strokeRefs[sid].setAttribute('d', pointsToPath(s.points));
-        strokeRefs[sid].setAttribute('stroke', s.color);
-        strokeRefs[sid].setAttribute('stroke-width', s.width);
-      }
-    });
   }));
 
   if (chatUnsub) chatUnsub();
@@ -1777,95 +1629,16 @@ function joinRoom(id) {
   if (settings.autoChat) toggleChat(true);
 }
 
-function pointsToPath(points) {
-  if (!points || points.length === 0) return '';
-  if (points.length === 1) {
-    const p = points[0];
-    return `M ${p.x} ${p.y} L ${p.x + 0.1} ${p.y + 0.1}`;
-  }
-  let d = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length; i++) {
-    d += ` L ${points[i].x} ${points[i].y}`;
-  }
-  return d;
-}
-function createStrokePath(sid, s) {
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path.setAttribute('d', pointsToPath(s.points));
-  path.setAttribute('stroke', s.color);
-  path.setAttribute('stroke-width', s.width);
-  path.setAttribute('fill', 'none');
-  path.setAttribute('stroke-linecap', 'round');
-  path.setAttribute('stroke-linejoin', 'round');
-  path.dataset.strokeId = sid;
-  path.classList.add('erasable');
-  return path;
-}
 function getCanvasCoords(e) {
   const rect = canvas.getBoundingClientRect();
   return { x: Math.round(e.clientX - rect.left), y: Math.round(e.clientY - rect.top) };
 }
 
-function setTool(tool) {
-  currentTool = tool;
-  document.getElementById('toolSelect').classList.toggle('active', tool === 'select');
-  document.getElementById('toolPen').classList.toggle('active', tool === 'pen');
-  document.getElementById('toolEraser').classList.toggle('active', tool === 'eraser');
-  document.getElementById('penOptions').classList.toggle('show', tool === 'pen');
-  canvas.className = 'mode-' + tool;
-  if (tool !== 'select') { clearSelection(); clearGroupSelection(); propPanel.classList.remove('show'); }
-}
-document.getElementById('toolSelect').addEventListener('click', () => setTool('select'));
-document.getElementById('toolPen').addEventListener('click', () => setTool('pen'));
-document.getElementById('toolEraser').addEventListener('click', () => setTool('eraser'));
-document.getElementById('penColor').addEventListener('input', (e) => { penColor = e.target.value; });
-document.getElementById('penWidth').addEventListener('input', (e) => {
-  penWidth = parseInt(e.target.value);
-  document.getElementById('penWidthLabel').textContent = penWidth;
-});
-
-// キャンバスのイベント
+// ============ マウスダウン ============
 canvas.addEventListener('mousedown', (e) => {
   if (!currentUser) return;
-
-  // 鉛筆モード
-  if (currentTool === 'pen' && e.button === 0) {
-    e.preventDefault();
-    isDrawing = true;
-    const { x, y } = getCanvasCoords(e);
-    const sid = newStrokeId();
-    currentStroke = { id: sid, points: [{ x, y }], color: penColor, width: penWidth };
-    currentStrokeEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    currentStrokeEl.setAttribute('d', pointsToPath(currentStroke.points));
-    currentStrokeEl.setAttribute('stroke', penColor);
-    currentStrokeEl.setAttribute('stroke-width', penWidth);
-    currentStrokeEl.setAttribute('stroke-linecap', 'round');
-    currentStrokeEl.setAttribute('stroke-linejoin', 'round');
-    currentStrokeEl.setAttribute('fill', 'none');
-    currentStrokeEl.classList.add('drawing');
-    drawLayer.appendChild(currentStrokeEl);
-    return;
-  }
-
-  // 消しゴムモード
-  if (currentTool === 'eraser') {
-    const target = e.target.closest('[data-stroke-id]');
-    if (target) {
-      const sid = target.dataset.strokeId;
-      const s = strokes[sid];
-      if (!s) return;
-      if (s.authorUid !== currentUser.uid && !isAdmin) {
-        showHint('🔒 他人の描画は消せません');
-        return;
-      }
-      remove(ref(db, `rooms/${roomId}/strokes/${sid}`));
-      showHint('🧽 消去');
-    }
-    return;
-  }
-
-  // 選択モード
-  if (e.button === 0 && (e.target === canvas || e.target.id === 'selectionRect')) {
+  // キャンバス（何もないところ）
+  if (e.target === canvas || e.target.id === 'selectionRect') {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -1895,6 +1668,7 @@ canvas.addEventListener('mousedown', (e) => {
   }
 });
 
+// ============ マウス移動 ============
 canvas.addEventListener('mousemove', e => {
   if (!currentUser) return;
   const rect = canvas.getBoundingClientRect();
@@ -1902,7 +1676,6 @@ canvas.addEventListener('mousemove', e => {
   const y = e.clientY - rect.top;
   if (settings.showCoordDisplay) coordDisplay.textContent = `X: ${Math.round(x)}  Y: ${Math.round(y)}`;
 
-  // カーソル同期
   if (myCursorRef) {
     const now = Date.now();
     if (!window._lastCursorUpdate || now - window._lastCursorUpdate > 50) {
@@ -1916,18 +1689,6 @@ canvas.addEventListener('mousemove', e => {
     }
   }
 
-  // 描画中
-  if (isDrawing && currentStroke && currentStrokeEl) {
-    const px = Math.round(x), py = Math.round(y);
-    const last = currentStroke.points[currentStroke.points.length - 1];
-    if (!last || Math.abs(last.x - px) + Math.abs(last.y - py) > 1) {
-      currentStroke.points.push({ x: px, y: py });
-      currentStrokeEl.setAttribute('d', pointsToPath(currentStroke.points));
-    }
-    return;
-  }
-
-  // 範囲選択
   if (isSelecting) {
     const x1 = Math.min(selectionStart.x, x);
     const y1 = Math.min(selectionStart.y, y);
@@ -1939,38 +1700,34 @@ canvas.addEventListener('mousemove', e => {
     selectionRect.style.height = (y2 - y1) + 'px';
   }
 
-  // ドラッグ移動（座標差分のみで計算：追随防止）
-  if (isDragging && currentDragId) {
-    const dx = x - dragStart.x;
-    const dy = y - dragStart.y;
-    // グループメンバーも一緒に動かす
+  // ドラッグ移動: 座標を直接計算（要素の座標を基準）
+  if (isDragging && currentDragId && dragStartPositions[currentDragId]) {
+    const startPos = dragStartPositions[currentDragId];
+    const dx = x - dragOffset.x - startPos.x;
+    const dy = y - dragOffset.y - startPos.y;
+
+    // 対象要素（グループ or 複数選択 or 単一）
+    const targetIds = dragGroupMembers && dragGroupMembers.length > 0
+      ? dragGroupMembers
+      : (selectedIds.size > 1 && selectedIds.has(currentDragId)
+          ? Array.from(selectedIds)
+          : [currentDragId]);
+
+    // 各要素を移動
+    targetIds.forEach(mid => {
+      const mdom = elementRefs[mid];
+      const mel = elements[mid];
+      const mStart = dragStartPositions[mid];
+      if (!mdom || !mel || !mStart) return;
+      if (isElementLocked(mel)) return;
+      // 開始座標 + 移動量 で計算（累積誤差なし）
+      mdom.style.left = (mStart.x + dx) + 'px';
+      mdom.style.top = (mStart.y + dy) + 'px';
+    });
+
+    // グループインジケータを即時更新
     if (dragGroupMembers && dragGroupMembers.length > 0) {
-      dragGroupMembers.forEach(mid => {
-        const mdom = elementRefs[mid];
-        const mel = elements[mid];
-        const orig = dragOrigins[mid];
-        if (!mdom || !mel || !orig) return;
-        if (isElementLocked(mel)) return;
-        mdom.style.left = (orig.x + dx) + 'px';
-        mdom.style.top = (orig.y + dy) + 'px';
-      });
-    } else if (selectedIds.size > 1 && selectedIds.has(currentDragId)) {
-      selectedIds.forEach(sid => {
-        const sdom = elementRefs[sid];
-        const sel = elements[sid];
-        const orig = dragOrigins[sid];
-        if (!sdom || !sel || !orig) return;
-        if (isElementLocked(sel)) return;
-        sdom.style.left = (orig.x + dx) + 'px';
-        sdom.style.top = (orig.y + dy) + 'px';
-      });
-    } else {
-      const dom = elementRefs[currentDragId];
-      const orig = dragOrigins[currentDragId];
-      if (dom && orig) {
-        dom.style.left = (orig.x + dx) + 'px';
-        dom.style.top = (orig.y + dy) + 'px';
-      }
+      updateGroupIndicatorsForMembers(dragGroupMembers);
     }
   }
 
@@ -1994,31 +1751,44 @@ canvas.addEventListener('mousemove', e => {
   }
 });
 
-document.addEventListener('mouseup', async (e) => {
-  // 描画終了
-  if (isDrawing && currentStroke) {
-    isDrawing = false;
-    if (currentStroke.points.length > 1) {
-      const sid = currentStroke.id;
-      const payload = {
-        points: currentStroke.points,
-        color: currentStroke.color,
-        width: currentStroke.width,
-        authorUid: currentUser.uid,
-        author: currentUser.displayName || currentUser.email,
-        createdAt: Date.now()
-      };
-      drawnStrokeIds.add(sid);
-      currentStrokeEl.classList.remove('drawing');
-      await set(ref(db, `rooms/${roomId}/strokes/${sid}`), payload);
-    } else {
-      currentStrokeEl?.remove();
-    }
-    currentStroke = null;
-    currentStrokeEl = null;
-  }
+// グループインジケータを即時更新（パフォーマンス重視）
+function updateGroupIndicatorsForMembers(memberIds) {
+  // 影響を受けるグループを特定
+  const affectedGroups = new Set();
+  memberIds.forEach(mid => {
+    const el = elements[mid];
+    if (el && el.groupId) affectedGroups.add(el.groupId);
+  });
+  affectedGroups.forEach(gid => {
+    const g = groups[gid];
+    const ind = groupIndicators[gid];
+    if (!g || !ind) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let validCount = 0;
+    g.members.forEach(mid => {
+      const el = elements[mid];
+      const dom = elementRefs[mid];
+      if (!el || !dom) return;
+      const mx = parseInt(dom.style.left);
+      const my = parseInt(dom.style.top);
+      const size = getElementSize(el);
+      minX = Math.min(minX, mx);
+      minY = Math.min(minY, my);
+      maxX = Math.max(maxX, mx + size.w);
+      maxY = Math.max(maxY, my + size.h);
+      validCount++;
+    });
+    if (validCount === 0) return;
+    const pad = 8;
+    ind.style.left = (minX - pad) + 'px';
+    ind.style.top = (minY - pad) + 'px';
+    ind.style.width = (maxX - minX + pad * 2) + 'px';
+    ind.style.height = (maxY - minY + pad * 2) + 'px';
+  });
+}
 
-  // 範囲選択
+// ============ マウスアップ ============
+document.addEventListener('mouseup', async (e) => {
   if (isSelecting) {
     const rect = canvas.getBoundingClientRect();
     const x1 = Math.min(selectionStart.x, e.clientX - rect.left);
@@ -2046,45 +1816,53 @@ document.addEventListener('mouseup', async (e) => {
     selectionRect.classList.remove('show');
   }
 
-  // ドラッグ終了 → Firebaseへ保存
+  // ドラッグ終了時にDBへ保存
   if (isDragging && currentDragId) {
-    const updates = [];
-    const ids = dragGroupMembers && dragGroupMembers.length > 0
+    const targetIds = dragGroupMembers && dragGroupMembers.length > 0
       ? dragGroupMembers
-      : (selectedIds.size > 1 && selectedIds.has(currentDragId) ? Array.from(selectedIds) : [currentDragId]);
-
-    ids.forEach(sid => {
-      const dom = elementRefs[sid];
-      const sel = elements[sid];
-      if (dom && sel && !isElementLocked(sel)) {
-        const newX = parseInt(dom.style.left);
-        const newY = parseInt(dom.style.top);
-        if (newX !== sel.x || newY !== sel.y) {
-          updates.push({ id: sid, x: newX, y: newY });
-        }
-        // ローカル状態も更新（他からの上書きで戻るのを防ぐ）
-        elements[sid] = { ...sel, x: newX, y: newY };
+      : (selectedIds.size > 1 && selectedIds.has(currentDragId)
+          ? Array.from(selectedIds)
+          : [currentDragId]);
+    // 一括更新
+    const updates = {};
+    targetIds.forEach(mid => {
+      const dom = elementRefs[mid];
+      const mel = elements[mid];
+      if (dom && mel && !isElementLocked(mel)) {
+        updates[`elements/${mid}/x`] = parseInt(dom.style.left);
+        updates[`elements/${mid}/y`] = parseInt(dom.style.top);
       }
     });
-
-    // 一括でまとめて更新
-    for (const u of updates) {
-      await update(ref(db, `rooms/${roomId}/elements/${u.id}`), { x: u.x, y: u.y }).catch(()=>{});
+    if (Object.keys(updates).length > 0) {
+      try {
+        await update(ref(db, `rooms/${roomId}`), updates);
+      } catch(err) {
+        // フォールバック: 個別更新
+        for (const mid of targetIds) {
+          const dom = elementRefs[mid];
+          const mel = elements[mid];
+          if (dom && mel && !isElementLocked(mel)) {
+            await update(ref(db, `rooms/${roomId}/elements/${mid}`), {
+              x: parseInt(dom.style.left),
+              y: parseInt(dom.style.top)
+            }).catch(()=>{});
+          }
+        }
+      }
     }
-
-    // dragging クラス解除
     Object.values(elementRefs).forEach(d => d.classList.remove('dragging'));
     dragGroupMembers = null;
-    dragOrigins = {};
+    dragStartPositions = {};
   }
-
   if (resizeState) {
     const { id, newW, newH, newX, newY } = resizeState;
     const sel = elements[id];
     if (newW && newH && !isElementLocked(sel)) {
-      elements[id] = { ...sel, width: Math.round(newW), height: Math.round(newH), x: Math.round(newX), y: Math.round(newY) };
       await update(ref(db, `rooms/${roomId}/elements/${id}`), {
-        width: Math.round(newW), height: Math.round(newH), x: Math.round(newX), y: Math.round(newY)
+        width: Math.round(newW),
+        height: Math.round(newH),
+        x: Math.round(newX),
+        y: Math.round(newY)
       }).catch(()=>{});
     }
   }
@@ -2143,13 +1921,12 @@ function createElementDOM(id, el) {
     outline.className = 'click-outline';
     outline.addEventListener('mousedown', (e) => {
       e.stopPropagation();
-      if (e.button !== 0) return;
       const elData = elements[id];
       if (!elData) return;
       if (e.shiftKey || e.metaKey || e.ctrlKey) { toggleSelection(id); return; }
       selectElement(id, true);
-      if (isElementLocked(elData)) { showHint('🔒 ロック中'); return; }
-      startDrag(id, e);
+      if (isElementLocked(elData)) { showHint('🔒 ロックされています'); return; }
+      startDrag(id);
     });
     div.appendChild(outline);
 
@@ -2229,60 +2006,32 @@ function createElementDOM(id, el) {
   if (!hasCode) div.addEventListener('mousedown', onElementMouseDown);
   div.addEventListener('dblclick', onElementDblClick);
 
-  // アクション
   const hasAnyAction = hasAction || groupHasAction;
   if (hasAnyAction) {
-    // クリック（シングル）
     div.addEventListener('click', (e) => {
-      if (e.detail !== 1) return;
-      setTimeout(() => {
-        if (!div._dblclicked) {
-          const el2 = elements[id];
-          if (!el2) return;
-          if (groupHasAction) runGroupAction(el2.groupId, 'click');
-          if (hasAction) runElementAction(id, 'click');
-        }
-        div._dblclicked = false;
-      }, 250);
+      const el2 = elements[id];
+      if (!el2) return;
+      if (e.detail === 1) {
+        setTimeout(() => {
+          if (!div._dblclicked) {
+            if (groupHasAction) runGroupAction(el2.groupId, 'click');
+            if (hasAction) runElementAction(id, 'click');
+          }
+          div._dblclicked = false;
+        }, 250);
+      }
     });
-    // ダブルクリック
     div.addEventListener('dblclick', (e) => {
       div._dblclicked = true;
       const el2 = elements[id];
       if (el2 && el2.action && el2.action.trigger === 'dblclick') runElementAction(id, 'dblclick');
       if (el2 && el2.groupId) runGroupAction(el2.groupId, 'dblclick');
     });
-    // ホバー
     div.addEventListener('mouseenter', () => {
       const el2 = elements[id];
       if (el2 && el2.action && el2.action.trigger === 'hover') runElementAction(id, 'hover');
       if (el2 && el2.groupId) runGroupAction(el2.groupId, 'hover');
     });
-    // マウスが離れた
-    div.addEventListener('mouseleave', () => {
-      const el2 = elements[id];
-      if (el2 && el2.action && el2.action.trigger === 'leave') runElementAction(id, 'leave');
-      if (el2 && el2.groupId) runGroupAction(el2.groupId, 'leave');
-    });
-    // 右クリック
-    div.addEventListener('contextmenu', (e) => {
-      const el2 = elements[id];
-      const hasRight = (el2 && el2.action && el2.action.trigger === 'rightclick') ||
-                       (el2 && el2.groupId && groups[el2.groupId] && groups[el2.groupId].action && groups[el2.groupId].action.trigger === 'rightclick');
-      if (hasRight) {
-        e.preventDefault();
-        if (groupHasAction) runGroupAction(el2.groupId, 'rightclick');
-        if (hasAction) runElementAction(id, 'rightclick');
-      }
-    });
-  }
-
-  // 表示された時（load）アクション
-  if (hasAction && el.action.trigger === 'load') {
-    setTimeout(() => runElementAction(id, 'load'), 100);
-  }
-  if (groupHasAction && group.action.trigger === 'load') {
-    setTimeout(() => runGroupAction(el.groupId, 'load'), 200);
   }
 
   return div;
@@ -2291,50 +2040,43 @@ function createElementDOM(id, el) {
 function startDragFromBar(e, id) {
   e.stopPropagation();
   e.preventDefault();
-  if (e.button !== 0) return;
   const el = elements[id];
   if (!el) return;
   if (isElementLocked(el)) { showHint('🔒 ロック中'); return; }
   if (e.shiftKey || e.metaKey || e.ctrlKey) { toggleSelection(id); return; }
   selectElement(id, true);
-  startDrag(id, e);
+  startDrag(id);
 }
-function startDrag(id, e) {
+function startDrag(id) {
   const el = elements[id];
   if (!el) return;
   isDragging = true;
   currentDragId = id;
   const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  dragStart = { x: mx, y: my };
-
-  // ドラッグ対象の元座標を保存
-  dragOrigins = {};
-  const targets = [];
-  // グループメンバー
-  if (el.groupId && groups[el.groupId] && groups[el.groupId].members) {
-    dragGroupMembers = groups[el.groupId].members.filter(m => elements[m]);
-    targets.push(...dragGroupMembers);
-  } else {
-    dragGroupMembers = null;
-    // 複数選択中なら全て
-    if (selectedIds.size > 1 && selectedIds.has(id)) {
-      targets.push(...Array.from(selectedIds));
-    } else {
-      targets.push(id);
-    }
-  }
-
-  targets.forEach(tid => {
-    const t = elements[tid];
-    if (t) dragOrigins[tid] = { x: t.x, y: t.y };
-    const tdom = elementRefs[tid];
-    if (tdom) tdom.classList.add('dragging');
-  });
-
+  // マウスの現在位置から、要素内のどこを掴んだかを計算
+  dragOffset.x = (window._lastMouseX - rect.left) - el.x;
+  dragOffset.y = (window._lastMouseY - rect.top) - el.y;
   const dom = elementRefs[id];
   if (dom) dom.classList.add('dragging');
+
+  // ドラッグ対象のメンバーを決定
+  if (el.groupId && groups[el.groupId] && groups[el.groupId].members) {
+    dragGroupMembers = groups[el.groupId].members.filter(m => elements[m]);
+  } else {
+    dragGroupMembers = null;
+  }
+
+  // 全対象の開始座標を記録（累積誤差防止）
+  dragStartPositions = {};
+  const targetIds = dragGroupMembers && dragGroupMembers.length > 0
+    ? dragGroupMembers
+    : (selectedIds.size > 1 && selectedIds.has(id)
+        ? Array.from(selectedIds)
+        : [id]);
+  targetIds.forEach(mid => {
+    const mel = elements[mid];
+    if (mel) dragStartPositions[mid] = { x: mel.x, y: mel.y };
+  });
 }
 
 function selectElement(id, exclusive = false) {
@@ -2373,6 +2115,7 @@ function clearGroupSelection() {
   if (selectedGroupId) {
     const ind = groupIndicators[selectedGroupId];
     if (ind) ind.classList.remove('selected');
+    // メンバーのハイライト解除
     const g = groups[selectedGroupId];
     if (g && g.members) {
       g.members.forEach(mid => {
@@ -2385,7 +2128,6 @@ function clearGroupSelection() {
 }
 
 function onElementMouseDown(e) {
-  if (e.button !== 0) return;
   if (e.target.classList.contains('resize-handle')) return;
   if (e.target.classList.contains('delete-btn')) return;
   if (e.target.classList.contains('name-label')) return;
@@ -2398,13 +2140,12 @@ function onElementMouseDown(e) {
   if (e.shiftKey || e.metaKey || e.ctrlKey) { toggleSelection(id); return; }
   selectElement(id, true);
   if (isElementLocked(el)) { showHint('🔒 ロック中'); return; }
-  startDrag(id, e);
+  startDrag(id);
 }
 
 function startResize(e, id, pos) {
   e.stopPropagation();
   e.preventDefault();
-  if (e.button !== 0) return;
   const el = elements[id];
   if (isElementLocked(el)) { showHint('🔒 リサイズ不可'); return; }
   const dom = elementRefs[id];
@@ -2451,7 +2192,7 @@ function onElementDblClick(e) {
   div.addEventListener('keydown', onKey);
 }
 
-// グループ
+// グループ表示
 function refreshAllGroupIndicators() {
   Object.values(groupIndicators).forEach(d => d.remove());
   groupIndicators = {};
@@ -2491,6 +2232,7 @@ function refreshAllGroupIndicators() {
     groupIndicators[gid] = ind;
   });
 }
+
 function selectGroup(gid) {
   clearSelection();
   clearGroupSelection();
@@ -2507,6 +2249,7 @@ function selectGroup(gid) {
   showGroupPropPanel(gid);
   showGroupHint(`📦 グループ「${g.name}」を選択中`);
 }
+
 function showGroupHint(msg) {
   groupHint.textContent = msg;
   groupHint.classList.add('show');
@@ -2556,12 +2299,16 @@ function showGroupPropPanel(gid) {
   const visBtn = document.createElement('button');
   visBtn.textContent = '👁 全表示';
   visBtn.addEventListener('click', async () => {
-    for (const mid of (g.members || [])) await update(ref(db, `rooms/${roomId}/elements/${mid}`), { visible: true });
+    for (const mid of (g.members || [])) {
+      await update(ref(db, `rooms/${roomId}/elements/${mid}`), { visible: true });
+    }
   });
   const hideBtn = document.createElement('button');
   hideBtn.textContent = '🙈 全隠す';
   hideBtn.addEventListener('click', async () => {
-    for (const mid of (g.members || [])) await update(ref(db, `rooms/${roomId}/elements/${mid}`), { visible: false });
+    for (const mid of (g.members || [])) {
+      await update(ref(db, `rooms/${roomId}/elements/${mid}`), { visible: false });
+    }
   });
   gVis.appendChild(visBtn);
   gVis.appendChild(hideBtn);
@@ -2571,13 +2318,16 @@ function showGroupPropPanel(gid) {
   gUngroup.className = 'pp-group';
   const ungroupBtn = document.createElement('button');
   ungroupBtn.className = 'group-btn';
-  ungroupBtn.textContent = '🔓 グループ解除';
+  ungroupBtn.textContent = '🔓 解除';
   ungroupBtn.addEventListener('click', async () => {
     if (!confirm(`グループ「${g.name}」を解除しますか？`)) return;
-    for (const mid of (g.members || [])) await remove(ref(db, `rooms/${roomId}/elements/${mid}/groupId`));
+    for (const mid of (g.members || [])) {
+      await remove(ref(db, `rooms/${roomId}/elements/${mid}/groupId`));
+    }
     await remove(ref(db, `rooms/${roomId}/groups/${gid}`));
     clearGroupSelection();
     propPanel.classList.remove('show');
+    showHint('🔓 グループ解除');
   });
   gUngroup.appendChild(ungroupBtn);
 
@@ -2787,7 +2537,61 @@ function showMultiSelectPanel() {
   groupBtn.textContent = '📦 グループ化';
   groupBtn.addEventListener('click', () => openGroupModal(ids));
   gGroup.appendChild(groupBtn);
+
+  const delBtn = document.createElement('button');
+  delBtn.textContent = '🗑 一括削除';
+  delBtn.style.background = '#c0392b';
+  delBtn.style.color = 'white';
+  delBtn.style.borderColor = '#c0392b';
+  delBtn.addEventListener('click', async () => {
+    if (!confirm(`${ids.length}個を削除しますか？`)) return;
+    for (const id of ids) {
+      const el = elements[id];
+      if (el && isElementLocked(el)) continue;
+      await remove(ref(db, `rooms/${roomId}/elements/${id}`));
+    }
+    clearSelection();
+  });
+  gGroup.appendChild(delBtn);
   propPanel.appendChild(gGroup);
+
+  const gAlign = document.createElement('div');
+  gAlign.className = 'pp-group';
+  [['left','⇤','左揃え'],['center-h','↔','中央横'],['right','⇥','右揃え'],['top','⇡','上揃え'],['center-v','↕','中央縦'],['bottom','⇣','下揃え']].forEach(([m, icon, t]) => {
+    const btn = document.createElement('button');
+    btn.textContent = icon;
+    btn.title = t;
+    btn.addEventListener('click', () => alignElements(m));
+    gAlign.appendChild(btn);
+  });
+  propPanel.appendChild(gAlign);
+}
+
+async function alignElements(mode) {
+  const ids = Array.from(selectedIds);
+  const els = ids.map(id => elements[id]).filter(Boolean);
+  if (els.length < 2) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  els.forEach(el => {
+    const size = getElementSize(el);
+    minX = Math.min(minX, el.x);
+    minY = Math.min(minY, el.y);
+    maxX = Math.max(maxX, el.x + size.w);
+    maxY = Math.max(maxY, el.y + size.h);
+  });
+  for (const id of ids) {
+    const el = elements[id];
+    if (!el || isElementLocked(el)) continue;
+    const size = getElementSize(el);
+    let newX = el.x, newY = el.y;
+    if (mode === 'left') newX = minX;
+    if (mode === 'right') newX = maxX - size.w;
+    if (mode === 'center-h') newX = (minX + maxX) / 2 - size.w / 2;
+    if (mode === 'top') newY = minY;
+    if (mode === 'bottom') newY = maxY - size.h;
+    if (mode === 'center-v') newY = (minY + maxY) / 2 - size.h / 2;
+    await update(ref(db, `rooms/${roomId}/elements/${id}`), { x: Math.round(newX), y: Math.round(newY) });
+  }
 }
 
 function rgbToHex(color) {
@@ -2829,32 +2633,32 @@ document.getElementById('gmSave').addEventListener('click', async () => {
     createdAt: Date.now()
   });
   groupModal.classList.remove('show');
-  if (settings.logEvent) addLog('event', `📦 グループ「${name}」作成`);
+  addLog('event', `📦 グループ「${name}」作成`);
   showHint(`📦 グループ「${name}」`);
   clearSelection();
   propPanel.classList.remove('show');
 });
 
-// ============ ビジュアルスクリプト ============
+// ビジュアルスクリプト
 function openVisualScript(elementId, groupId) {
   editingActionId = elementId;
   editingActionGroupId = groupId;
 
   let currentAction = {};
   let titleText = '🎯 ビジュアルスクリプト';
-  let helpText = '';
+  let helpText = 'コードを書かずに動作を設定できます。';
 
   if (groupId) {
     const g = groups[groupId];
     if (!g) return;
     currentAction = g.action ? { ...g.action } : { trigger: 'click', action: 'show', target: '' };
     titleText = `🎯 グループ「${g.name}」の動作`;
-    helpText = `グループ「${g.name}」のメンバー（${(g.members || []).length}個）のいずれかを操作すると実行されます。`;
+    helpText = `グループ「${g.name}」のメンバーのいずれかをクリックすると、設定した動作が実行されます。`;
   } else if (elementId) {
     const el = elements[elementId];
     if (!el) return;
     currentAction = el.action ? { ...el.action } : { trigger: 'click', action: 'show', target: '' };
-    titleText = `🎯 動作: ${el.name || TYPE_LABEL[el.type] || el.type}`;
+    titleText = `🎯 動作設定: ${el.name || TYPE_LABEL[el.type] || el.type}`;
     helpText = `「${el.name || TYPE_LABEL[el.type] || el.type}」を操作したときの動作を設定します。`;
   }
   editingActionData = currentAction;
@@ -2862,7 +2666,6 @@ function openVisualScript(elementId, groupId) {
   document.getElementById('vsTitle').textContent = titleText;
   document.getElementById('vsHelp').textContent = helpText;
 
-  // ターゲット選択肢
   const targetSelect = document.getElementById('vsTarget');
   targetSelect.innerHTML = '<option value="">（自分自身）</option>';
 
@@ -2893,7 +2696,6 @@ function openVisualScript(elementId, groupId) {
   document.getElementById('vsAction').value = currentAction.action || 'show';
   document.getElementById('vsTarget').value = currentAction.target || '';
 
-  // デフォルト座標
   if (groupId) {
     const g = groups[groupId];
     if (g && g.members) {
@@ -2913,14 +2715,8 @@ function openVisualScript(elementId, groupId) {
     document.getElementById('vsY').value = currentAction.y ?? Math.round(el.y + 50);
   }
 
-  document.getElementById('vsDX').value = currentAction.dx ?? 50;
-  document.getElementById('vsDY').value = currentAction.dy ?? 50;
-  document.getElementById('vsW').value = currentAction.w ?? 200;
-  document.getElementById('vsH').value = currentAction.h ?? 100;
   document.getElementById('vsColor').value = currentAction.color || '#0d99ff';
   document.getElementById('vsText').value = currentAction.text || '';
-  document.getElementById('vsSetText').value = currentAction.setText || '';
-  document.getElementById('vsLink').value = currentAction.link || '';
 
   updateVisualRows();
   updateVisualPreview();
@@ -2930,21 +2726,10 @@ function openVisualScript(elementId, groupId) {
 function updateVisualRows() {
   const action = document.getElementById('vsAction').value;
   document.getElementById('vsCoordRow').style.display = action === 'move' ? 'flex' : 'none';
-  document.getElementById('vsDeltaRow').style.display = action === 'moveBy' ? 'flex' : 'none';
-  document.getElementById('vsSizeRow').style.display = action === 'resize' ? 'flex' : 'none';
   document.getElementById('vsColorRow').style.display = (action === 'color' || action === 'selfColor') ? 'flex' : 'none';
-  document.getElementById('vsTextRow').style.display = action === 'notify' || action === 'sendChat' ? 'flex' : 'none';
-  document.getElementById('vsSetTextRow').style.display = action === 'setText' ? 'flex' : 'none';
-  document.getElementById('vsLinkRow').style.display = action === 'openLink' ? 'flex' : 'none';
-
-  const needsTarget = !['notify', 'selfColor', 'selfToggle', 'sendChat', 'openLink'].includes(action);
+  document.getElementById('vsTextRow').style.display = action === 'notify' ? 'flex' : 'none';
+  const needsTarget = !['notify', 'selfColor', 'selfToggle'].includes(action);
   document.getElementById('vsTargetRow').style.display = needsTarget ? 'flex' : 'none';
-
-  // テキストラベル切替
-  const textLabel = document.querySelector('#vsTextRow label');
-  if (textLabel) {
-    textLabel.textContent = action === 'sendChat' ? 'チャット文' : 'メッセージ';
-  }
 }
 
 function updateVisualPreview() {
@@ -2952,60 +2737,38 @@ function updateVisualPreview() {
   const action = document.getElementById('vsAction').value;
   const targetSel = document.getElementById('vsTarget');
   const targetLabel = targetSel.options[targetSel.selectedIndex]?.textContent || '（自分自身）';
-  const triggerText = {
-    click: '🖱 クリック時', hover: '✨ ホバー時', leave: '🚪 離れた時',
-    dblclick: '🖱🖱 ダブルクリック時', rightclick: '🖱 右クリック時', load: '⏱ 表示時'
-  }[trigger];
+  const triggerText = { click: 'クリック時', hover: 'マウスオーバー時', dblclick: 'ダブルクリック時' }[trigger];
   const actionText = {
-    show: '🎯 対象を表示', hide: '🙈 対象を隠す', toggle: '🔄 表示/非表示切替',
-    appear: '💫 対象をフェードイン', disappear: '💨 対象をフェードアウト',
-    move: '📍 対象を移動', moveBy: '↔ 対象を相対移動', resize: '📐 対象のサイズ変更',
-    color: '🎨 対象の色を変更', selfColor: '🎨 自分の色を変更',
-    setText: '✏ 対象のテキストを変更', notify: '💬 メッセージ表示',
-    clone: '⧉ 対象を複製', remove: '🗑 対象を削除',
-    sendChat: '💭 チャットに送信', selfToggle: '🔄 自分の表示を切替',
-    shake: '📳 対象をシェイク', openLink: '🔗 URLを開く'
+    show: 'を表示', hide: 'を隠す', toggle: 'の表示/非表示を切替',
+    appear: 'をフェードイン', disappear: 'をフェードアウト',
+    move: 'を移動', color: 'の色を変更', notify: 'メッセージを表示',
+    selfColor: '自分の色を変更', selfToggle: '自分の表示を切替'
   }[action];
 
   const sourceLabel = editingActionGroupId
     ? `📦 <strong>${escapeHtml(groups[editingActionGroupId]?.name || 'グループ')}</strong>`
     : `📍 <strong>${escapeHtml(elements[editingActionId]?.name || TYPE_LABEL[elements[editingActionId]?.type] || 'これ')}</strong>`;
 
-  let p = `<span class="badge orange">${triggerText}</span> ${sourceLabel} を操作すると<br>`;
-  p += `<span class="badge blue">${actionText}</span>`;
-
+  let preview = `<span class="badge orange">${triggerText}</span> ${sourceLabel} を操作すると`;
   if (action === 'notify') {
-    p += ` 💬 <strong>"${escapeHtml(document.getElementById('vsText').value || 'Hello')}"</strong>`;
-  } else if (action === 'sendChat') {
-    p += ` → 💭 <strong>"${escapeHtml(document.getElementById('vsText').value || 'Hello')}"</strong>`;
+    preview += ` 💬 <strong>"${escapeHtml(document.getElementById('vsText').value || 'Hello')}"</strong> を表示`;
   } else if (action === 'move') {
-    p += ` → ${targetLabel} を <strong>(${document.getElementById('vsX').value}, ${document.getElementById('vsY').value})</strong>`;
-  } else if (action === 'moveBy') {
-    p += ` → ${targetLabel} を <strong>(Δ${document.getElementById('vsDX').value}, Δ${document.getElementById('vsDY').value})</strong>`;
-  } else if (action === 'resize') {
-    p += ` → ${targetLabel} を <strong>${document.getElementById('vsW').value}×${document.getElementById('vsH').value}</strong>`;
-  } else if (action === 'color') {
-    p += ` → ${targetLabel} を <span class="badge" style="background:${document.getElementById('vsColor').value}">${document.getElementById('vsColor').value}</span>`;
+    preview += ` ${targetLabel} を <span class="badge blue">(${document.getElementById('vsX').value}, ${document.getElementById('vsY').value})</span> に移動`;
   } else if (action === 'selfColor') {
-    p += ` → 自分を <span class="badge" style="background:${document.getElementById('vsColor').value}">${document.getElementById('vsColor').value}</span>`;
-  } else if (action === 'setText') {
-    p += ` → ${targetLabel} を "<strong>${escapeHtml(document.getElementById('vsSetText').value || '')}</strong>"`;
-  } else if (action === 'openLink') {
-    p += ` → 🔗 <strong>${escapeHtml(document.getElementById('vsLink').value || '')}</strong>`;
+    preview += ` 自分の色を <span class="badge">${document.getElementById('vsColor').value}</span> に変更`;
   } else if (action === 'selfToggle') {
-    p += ` → 自分自身`;
+    preview += ` 自分の表示/非表示を切替`;
+  } else if (action === 'color') {
+    preview += ` ${targetLabel} の色を <span class="badge">${document.getElementById('vsColor').value}</span> に変更`;
   } else {
-    p += ` → ${targetLabel}`;
+    preview += ` ${targetLabel} ${actionText}`;
   }
-  document.getElementById('vsPreview').innerHTML = p;
+  document.getElementById('vsPreview').innerHTML = preview;
 }
 
-['vsTrigger','vsAction','vsTarget','vsX','vsY','vsDX','vsDY','vsW','vsH','vsColor','vsText','vsSetText','vsLink'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) {
-    el.addEventListener('change', () => { updateVisualRows(); updateVisualPreview(); });
-    el.addEventListener('input', updateVisualPreview);
-  }
+['vsTrigger','vsAction','vsTarget','vsX','vsY','vsColor','vsText'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => { updateVisualRows(); updateVisualPreview(); });
+  document.getElementById(id).addEventListener('input', updateVisualPreview);
 });
 document.getElementById('vsClose').addEventListener('click', () => visualModal.classList.remove('show'));
 document.getElementById('vsClose2').addEventListener('click', () => visualModal.classList.remove('show'));
@@ -3017,14 +2780,8 @@ document.getElementById('vsSave').addEventListener('click', async () => {
     target: document.getElementById('vsTarget').value,
     x: parseInt(document.getElementById('vsX').value) || 0,
     y: parseInt(document.getElementById('vsY').value) || 0,
-    dx: parseInt(document.getElementById('vsDX').value) || 0,
-    dy: parseInt(document.getElementById('vsDY').value) || 0,
-    w: parseInt(document.getElementById('vsW').value) || 200,
-    h: parseInt(document.getElementById('vsH').value) || 100,
     color: document.getElementById('vsColor').value,
-    text: document.getElementById('vsText').value,
-    setText: document.getElementById('vsSetText').value,
-    link: document.getElementById('vsLink').value
+    text: document.getElementById('vsText').value
   };
   if (editingActionGroupId) {
     await update(ref(db, `rooms/${roomId}/groups/${editingActionGroupId}`), { action });
@@ -3057,7 +2814,6 @@ document.getElementById('vsRemove').addEventListener('click', async () => {
   visualModal.classList.remove('show');
 });
 
-// アクション実行
 async function runElementAction(id, triggerType) {
   const el = elements[id];
   if (!el || !el.action) return;
@@ -3073,136 +2829,34 @@ async function runGroupAction(gid, triggerType) {
 }
 
 async function executeAction(a, selfId, group) {
-  const targetIds = resolveTargets(a, selfId, group);
-
-  // メッセージ系
   if (a.action === 'notify') {
     showHint('📢 ' + (a.text || 'メッセージ'));
     addLog('event', `📢 ${a.text}`);
     return;
   }
-  if (a.action === 'sendChat') {
-    const text = a.text || 'Hello';
-    const msgRef = push(ref(db, `rooms/${roomId}/chats`));
-    await set(msgRef, {
-      text,
-      author: currentUser.displayName || currentUser.email.split('@')[0],
-      email: currentUser.email,
-      photo: currentUser.photoURL || '',
-      timestamp: Date.now()
-    });
-    showHint('💭 チャット送信: ' + text);
-    return;
-  }
-  if (a.action === 'openLink') {
-    if (a.link) {
-      window.open(a.link, '_blank', 'noopener');
-      showHint('🔗 リンクを開きました');
-    }
-    return;
-  }
-
-  // 自分自身へのアクション
   if (a.action === 'selfColor') {
-    const ids = group ? (group.members || []) : (selfId ? [selfId] : []);
-    for (const id of ids) {
-      if (!elements[id]) continue;
-      await update(ref(db, `rooms/${roomId}/elements/${id}`), { color: a.color });
+    if (group) {
+      for (const mid of group.members || []) {
+        await update(ref(db, `rooms/${roomId}/elements/${mid}`), { color: a.color });
+      }
+    } else if (selfId) {
+      await update(ref(db, `rooms/${roomId}/elements/${selfId}`), { color: a.color });
     }
     return;
   }
   if (a.action === 'selfToggle') {
-    const ids = group ? (group.members || []) : (selfId ? [selfId] : []);
-    if (ids.length > 0) {
-      const first = elements[ids[0]];
+    if (group) {
+      const first = elements[group.members[0]];
       const newVis = first && first.visible === false ? true : false;
-      for (const id of ids) {
-        if (!elements[id]) continue;
-        await update(ref(db, `rooms/${roomId}/elements/${id}`), { visible: newVis });
+      for (const mid of group.members || []) {
+        await update(ref(db, `rooms/${roomId}/elements/${mid}`), { visible: newVis });
       }
+    } else if (selfId) {
+      const el = elements[selfId];
+      await update(ref(db, `rooms/${roomId}/elements/${selfId}`), { visible: el.visible === false ? true : false });
     }
     return;
   }
-
-  // 対象へのアクション
-  for (const tid of targetIds) {
-    const target = elements[tid];
-    if (!target) continue;
-    switch (a.action) {
-      case 'show':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 });
-        break;
-      case 'hide':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: false });
-        break;
-      case 'toggle':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: target.visible === false ? true : false });
-        break;
-      case 'appear':
-        // 一度透明にしてから表示
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 0.05 });
-        setTimeout(async () => {
-          await update(ref(db, `rooms/${roomId}/elements/${tid}`), { opacity: 1 });
-        }, 100);
-        break;
-      case 'disappear':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { opacity: 0.05 });
-        break;
-      case 'move':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { x: a.x, y: a.y });
-        break;
-      case 'moveBy':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { x: (target.x || 0) + a.dx, y: (target.y || 0) + a.dy });
-        break;
-      case 'resize':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { width: a.w, height: a.h });
-        break;
-      case 'color':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { color: a.color });
-        break;
-      case 'setText':
-        await update(ref(db, `rooms/${roomId}/elements/${tid}`), { content: a.setText });
-        break;
-      case 'clone': {
-        const newId = newElemId();
-        const copy = JSON.parse(JSON.stringify(target));
-        copy.x = (target.x || 0) + 30;
-        copy.y = (target.y || 0) + 30;
-        delete copy.groupId;
-        delete copy.action;
-        copy.authorUid = currentUser.uid;
-        copy.author = currentUser.displayName || currentUser.email;
-        await set(ref(db, `rooms/${roomId}/elements/${newId}`), copy);
-        break;
-      }
-      case 'remove':
-        if (!isElementLocked(target)) {
-          await remove(ref(db, `rooms/${roomId}/elements/${tid}`));
-        }
-        break;
-      case 'shake': {
-        // シェイク演出（ローカルのみ）
-        const dom = elementRefs[tid];
-        if (dom) {
-          const startX = parseInt(dom.style.left);
-          let count = 0;
-          const interval = setInterval(() => {
-            const offset = (count % 2 === 0) ? 5 : -5;
-            dom.style.left = (startX + offset) + 'px';
-            count++;
-            if (count > 8) {
-              clearInterval(interval);
-              dom.style.left = startX + 'px';
-            }
-          }, 40);
-        }
-        break;
-      }
-    }
-  }
-}
-
-function resolveTargets(a, selfId, group) {
   let targetIds = [];
   if (a.target && a.target.startsWith('group:')) {
     const gid = a.target.slice(6);
@@ -3211,11 +2865,21 @@ function resolveTargets(a, selfId, group) {
   } else if (a.target) {
     targetIds = [a.target];
   } else {
-    // 対象指定なし → 自分自身
-    if (group) targetIds = group.members || [];
-    else if (selfId) targetIds = [selfId];
+    targetIds = selfId ? [selfId] : [];
   }
-  return targetIds;
+  for (const tid of targetIds) {
+    const target = elements[tid];
+    if (!target) continue;
+    switch (a.action) {
+      case 'show': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 }); break;
+      case 'hide': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: false }); break;
+      case 'toggle': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: target.visible === false ? true : false }); break;
+      case 'appear': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { visible: true, opacity: 1 }); break;
+      case 'disappear': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { opacity: 0.05 }); break;
+      case 'move': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { x: a.x, y: a.y }); break;
+      case 'color': await update(ref(db, `rooms/${roomId}/elements/${tid}`), { color: a.color }); break;
+    }
+  }
 }
 
 // コードエディタ
@@ -3254,11 +2918,11 @@ document.getElementById('codeSave').addEventListener('click', async () => {
     height: elements[editingCodeId].height || 160
   });
   closeCodeEditor();
-  showHint('⚡ スクリプト保存');
+  showHint('⚡ コード保存');
 });
 document.getElementById('codeRemove').addEventListener('click', async () => {
   if (!editingCodeId || !roomId) return;
-  if (!confirm('スクリプトを削除しますか？')) return;
+  if (!confirm('コードを削除しますか？')) return;
   await remove(ref(db, `rooms/${roomId}/elements/${editingCodeId}/code`));
   closeCodeEditor();
 });
@@ -3331,7 +2995,7 @@ function applyTextStyle(dom, el) {
 function updateElementDOM(id, el) {
   const dom = elementRefs[id];
   if (!dom) return;
-  // 座標更新（ドラッグ中でない場合のみ）
+  // ドラッグ中は位置を上書きしない
   if (!dom.classList.contains('dragging')) {
     dom.style.left = el.x + 'px';
     dom.style.top = el.y + 'px';
@@ -3345,8 +3009,6 @@ function updateElementDOM(id, el) {
   if (el.opacity !== undefined) {
     dom.style.opacity = el.opacity;
     dom.classList.toggle('faded', el.opacity < 0.3);
-  } else {
-    dom.style.opacity = '';
   }
   dom.classList.toggle('locked', !!el.locked);
 
@@ -3360,6 +3022,7 @@ function updateElementDOM(id, el) {
 
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
   const hadCode = dom.classList.contains('has-script');
+
   if (hasCode !== hadCode) {
     const newDom = createElementDOM(id, el);
     dom.replaceWith(newDom);
@@ -3471,10 +3134,11 @@ async function addElement(type, opts = {}) {
   const newRef = push(ref(db, `rooms/${roomId}/elements`));
   await set(newRef, payload);
   const label = payload.name || TYPE_LABEL[payload.type] || payload.type;
-  if (settings.logEvent) addLog('event', `✨ 「${label}」追加`);
+  addLog('event', `✨ 「${label}」を (${payload.x}, ${payload.y}) に追加`);
   showHint(`✨ ${label} を追加`);
 }
 
+// スラッシュメニュー
 let slashActiveIndex = 0;
 let slashFiltered = COMMANDS.slice();
 function showSlashMenu(x, y) {
@@ -3532,7 +3196,6 @@ async function executeCommand(id) {
       if (confirm('全要素を削除しますか？')) {
         remove(ref(db, `rooms/${roomId}/elements`));
         remove(ref(db, `rooms/${roomId}/groups`));
-        remove(ref(db, `rooms/${roomId}/strokes`));
       }
       break;
   }
@@ -3585,6 +3248,7 @@ document.getElementById('logClear').addEventListener('click', () => {
 });
 document.getElementById('logBtn').addEventListener('click', () => scriptLog.classList.toggle('show'));
 
+// キーボード
 document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase();
   const inEditable = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
@@ -3609,16 +3273,21 @@ document.addEventListener('keydown', (e) => {
   }
   if (slashMenu.classList.contains('show')) {
     if (e.key === 'Escape') { e.preventDefault(); hideSlashMenu(); return; }
-    if (e.key === 'ArrowDown') { e.preventDefault(); slashActiveIndex = (slashActiveIndex + 1) % slashFiltered.length; renderSlashMenu(); return; }
-    if (e.key === 'ArrowUp') { e.preventDefault(); slashActiveIndex = (slashActiveIndex - 1 + slashFiltered.length) % slashFiltered.length; renderSlashMenu(); return; }
-    if (e.key === 'Enter' && !inEditable) { e.preventDefault(); executeCommand(slashFiltered[slashActiveIndex].id); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      slashActiveIndex = (slashActiveIndex + 1) % slashFiltered.length;
+      renderSlashMenu(); return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      slashActiveIndex = (slashActiveIndex - 1 + slashFiltered.length) % slashFiltered.length;
+      renderSlashMenu(); return;
+    }
+    if (e.key === 'Enter' && !inEditable) {
+      e.preventDefault(); executeCommand(slashFiltered[slashActiveIndex].id); return;
+    }
   }
   if (inEditable) return;
-  if (!e.metaKey && !e.ctrlKey) {
-    if (e.key === 'v' || e.key === 'V') { setTool('select'); return; }
-    if (e.key === 'p' || e.key === 'P') { setTool('pen'); return; }
-    if (e.key === 'e' || e.key === 'E') { setTool('eraser'); return; }
-  }
   if ((e.key === 'Delete' || e.key === 'Backspace') && (selectedIds.size > 0 || selectedGroupId)) {
     e.preventDefault();
     if (selectedGroupId) {
@@ -3677,6 +3346,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// 吹き出し
 function openMyBubble() {
   const x = window._lastMouseX || window.innerWidth / 2;
   const y = window._lastMouseY || window.innerHeight / 2;
@@ -3727,6 +3397,7 @@ document.addEventListener('mousemove', (e) => {
   window._lastMouseY = e.clientY;
 });
 
+// 画像ペースト
 document.addEventListener('paste', async (e) => {
   if (!roomId || !currentUser) return;
   if (codeModal.classList.contains('show') || visualModal.classList.contains('show') || settingsModal.classList.contains('show')) return;
@@ -3791,7 +3462,7 @@ async function pasteImage(dataUrl) {
   };
   if (name && name.trim()) payload.name = name.trim();
   await set(ref(db, `rooms/${roomId}/elements/${newId}`), payload);
-  if (settings.logEvent) addLog('event', `🖼 画像を追加`);
+  addLog('event', `🖼 画像を追加`);
 }
 
 function renderUsers(cursorsData) {
@@ -3859,6 +3530,7 @@ function renderChats(data) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+// 管理者
 document.getElementById('slashBtn').addEventListener('click', (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
   showSlashMenu(rect.left, rect.bottom + 6);
@@ -3868,7 +3540,6 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   if (!confirm('全要素を削除しますか？')) return;
   remove(ref(db, `rooms/${roomId}/elements`));
   remove(ref(db, `rooms/${roomId}/groups`));
-  remove(ref(db, `rooms/${roomId}/strokes`));
 });
 document.getElementById('joinBtn').addEventListener('click', () => {
   const id = document.getElementById('roomInput').value.trim() || 'default';
@@ -3939,9 +3610,7 @@ function renderAdminPanel() {
 }
 
 applySettings();
-setTool('select');
 console.log('%c🎨 FigmaDG', 'color:#0d99ff;font-size:20px;font-weight:bold');
-console.log('動作拡張 + 鉛筆描画修正 + ドラッグ遅延修正 完了');
 </script>
 </body>
 </html>
