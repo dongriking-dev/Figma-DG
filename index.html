@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FigmaDG</title>
- <link id="faviconLink" rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADNklEQVR4AbSXXUgUURTH/3faPtR2SxFT1xJBkQhCogiJEvPBECqhngp96AOCPqnopXxIxAoKCqJeDAKhHrWnIKgn6aEy+sClqAxztS1Bl13DLHdu9+w6OtOeO7vb5jBn5t5z/uec39xhdmYN0zSlaTpN2jczJiPNFTKyaw1r8vQBydqJFnuV+Ng0nX1M05QGXLbo7nJEmysAM+ai0oQ8i4EzB4GTrRpBwq0FoOYJSZZHC0RThgWINBZo5Fm4pWSTWQCxzMeKs3J+C7HpLADA07IV0nTK25dZJQsgY79YcTZOcfEGm84C+HqDrHghnCwAPIv+by8htPV4ACX3PhgCmRpmt1+7A1zt0tbQAlgZBNG7dAg9ebyBGsyaVOeCHV0oburCzaOqqZpbdXTnlADd+1SqB6BF5AyzGz03ZY8lclRFuoGXPgPlT8g7K9CclJyPdO8H4s35sMPrV42pucOpJjOqP8Veh9VEs/MAKjHdn4LVqrmm9py7qZ8Kzk0dAxag95RD4zoxXaOpgyxAdCx1YqaKPc/5VWABMi2ejt6r3s6cjgWorOek2fnu1tAzlFyDBag9nCzUef7hU8VRigUgheb1TSGHhRr4K7OLRlw0WoDW+0DLPXsZ/ZgakP2tGJ8BOL9dpwWwRARRfw7wGCZrlo7O1Gzd8sTXxPB2ganG1KtjUKLOHk4MIO9VB6rRgUNnO1mzcoVINHu0WWBULbmRmFph7VkLQI33DvVoE7mAEPNdvfml8K7wo6i4EqtKqlBUWgXfSj98BX5HKgsw/HPcIUpn0t7eDvXxb5MK5OTm4nvoI4JfAthSuxFCJLdL9qgSa9/dUsfM9ra2NggxvwJCChQW5seh+vqe4vixIzDSBeB/NFMDOVcACLx9Foeqq9uK/hcvIYWqrMDsldgVmL8OuzTzcV3DToTDYRiGgc4r1xGjf1gEYSvFAhQZS2wS/VBA6IMqEhgIYMOmbSgpq8ZM7Ddsd0hFEzsLMLhePfiJuOtxsua8Nh4JBzEW+oTBD2/wNfge0YlRRMZH4mZPYgFI8KPmAtyuz6055adrWgAqMKkgCGQqNh2HmVb3kBqTT8Q9pHK3VNE/AAAA///HoRc2AAAABklEQVQDANe2R681Yw9XAAAAAElFTkSuQmCC">
+<title>FigmaDG - FigJam風</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -95,13 +94,11 @@
   .element {
     position: absolute; user-select: none;
   }
-  /* 編集後の装飾は一切表示しない */
   .element:hover:not(.has-script):not(.locked),
   .element.selected,
   .element.group-selected {
     box-shadow: none;
   }
-  /* ロックアイコン非表示 */
   .element.locked::after {
     display: none;
   }
@@ -158,28 +155,13 @@
   .element.has-script.dragging .script-frame,
   .element.has-script.dragging .click-outline { pointer-events: none; }
 
-  /* リサイズハンドル: 完全非表示 */
-  .element .resize-handle {
-    display: none !important;
-  }
-  .element.selected .resize-handle {
-    display: none !important;
-  }
+  .element .resize-handle { display: none !important; }
+  .element.selected .resize-handle { display: none !important; }
+  .element .delete-btn { display: none !important; }
+  .element.selected .delete-btn { display: none !important; }
+  .element .script-badge { display: none !important; }
 
-  /* 削除ボタン: 完全非表示 */
-  .element .delete-btn {
-    display: none !important;
-  }
-  .element.selected .delete-btn {
-    display: none !important;
-  }
-
-  /* スクリプトバッジ: 完全非表示 */
-  .element .script-badge {
-    display: none !important;
-  }
-
-  /* 名前ラベル: 設定による表示制御のみ */
+  /* ===== 要素の名前ラベル ===== */
   .element .name-label {
     position: absolute;
     top: -20px; left: 0;
@@ -203,6 +185,7 @@
   .element.locked .name-label { background: #f39c12; }
   .element.group-selected .name-label { background: #f39c12; }
 
+  /* ===== グループインジケータ ===== */
   .group-indicator {
     position: absolute;
     border: 2px dashed #f39c12;
@@ -219,8 +202,18 @@
     white-space: nowrap;
     pointer-events: auto;
     cursor: pointer;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .group-indicator .group-tag:hover { background: #e67e22; }
+  /* グループ名を隠す場合 */
+  .group-indicator.hide-name .group-tag { display: none; }
+  /* グループ選択中は半透明で表示 */
+  .group-indicator.hide-name.selected .group-tag {
+    display: block;
+    opacity: 0.5;
+  }
   .group-indicator.selected {
     border-color: #0d99ff;
     border-width: 3px;
@@ -408,6 +401,10 @@
   #propPanel button.lock-btn.disabled {
     background: #2a2a2a; border-color: #444;
     color: #666; cursor: not-allowed;
+  }
+  #propPanel button.name-toggle-btn {
+    background: #e67e22; border-color: #e67e22;
+    color: white; font-weight: 600;
   }
   #propPanel .pos-info {
     font-family: monospace; font-size: 11px;
@@ -1182,7 +1179,7 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
-const SETTINGS_KEY = 'figmadg-settings-v7';
+const SETTINGS_KEY = 'figmadg-settings-v8';
 const DEFAULT_SETTINGS = {
   showGrid: true, showRemoteCursors: true, showCoordDisplay: true,
   showCoordToast: true, logAutoShow: true, logCoord: true,
@@ -2397,7 +2394,9 @@ function refreshAllGroupIndicators() {
     if (validCount === 0) return;
     const pad = 8;
     const ind = document.createElement('div');
-    ind.className = 'group-indicator' + (selectedGroupId === gid ? ' selected' : '');
+    ind.className = 'group-indicator';
+    if (selectedGroupId === gid) ind.classList.add('selected');
+    if (g.hideName) ind.classList.add('hide-name');
     ind.dataset.groupId = gid;
     ind.style.left = (minX - pad) + 'px';
     ind.style.top = (minY - pad) + 'px';
@@ -2455,6 +2454,7 @@ function showGroupPropPanel(gid) {
   info.appendChild(infoEl);
   propPanel.appendChild(info);
 
+  // グループ名
   const gName = document.createElement('div');
   gName.className = 'pp-group';
   gName.innerHTML = `<label>名前</label>`;
@@ -2468,6 +2468,32 @@ function showGroupPropPanel(gid) {
   });
   gName.appendChild(nameInput);
   propPanel.appendChild(gName);
+
+  // ===== グループ名の表示/非表示切替（本人・管理者のみ） =====
+  const isGroupOwner = g.authorUid === currentUser.uid || isAdmin;
+  if (isGroupOwner) {
+    const gNameShow = document.createElement('div');
+    gNameShow.className = 'pp-group';
+    const nameShowBtn = document.createElement('button');
+    nameShowBtn.className = 'name-toggle-btn';
+    nameShowBtn.textContent = g.hideName ? '👁 名前を表示' : '🙈 名前を隠す';
+    nameShowBtn.title = 'グループの名前ラベルを表示/非表示（枠は残ります）';
+    nameShowBtn.addEventListener('click', async () => {
+      const newVal = !g.hideName;
+      pushUndo({
+        type: 'update',
+        isGroupAction: true,
+        elementId: gid,
+        before: { hideName: !!g.hideName },
+        after: { hideName: newVal }
+      });
+      await update(ref(db, `rooms/${roomId}/groups/${gid}`), { hideName: newVal });
+      refreshAllGroupIndicators();
+      showGroupPropPanel(gid);
+    });
+    gNameShow.appendChild(nameShowBtn);
+    propPanel.appendChild(gNameShow);
+  }
 
   const gAction = document.createElement('div');
   gAction.className = 'pp-group';
@@ -2574,7 +2600,7 @@ function showPropPanel() {
   const isSticky = el.type === 'sticky';
   const isStamp = el.type === 'stamp';
 
-  // 🗑 削除ボタン（先頭）
+  // 🗑 削除ボタン
   if (!locked || isOwner) {
     const gDelete = document.createElement('div');
     gDelete.className = 'pp-group';
@@ -2596,7 +2622,7 @@ function showPropPanel() {
     propPanel.appendChild(gDelete);
   }
 
-  // 📐 サイズ変更（数値入力）
+  // 📐 サイズ
   if (!locked || isOwner) {
     const sizeInfo = getElementSize(el);
     const gSize = document.createElement('div');
@@ -2710,6 +2736,7 @@ function showPropPanel() {
     const gNameShow = document.createElement('div');
     gNameShow.className = 'pp-group';
     const nameShowBtn = document.createElement('button');
+    nameShowBtn.className = 'name-toggle-btn';
     nameShowBtn.textContent = el.hideName ? '👁 名前を表示' : '🙈 名前を隠す';
     nameShowBtn.title = '名前ラベルだけを非表示（本体は残ります）';
     nameShowBtn.addEventListener('click', () => {
