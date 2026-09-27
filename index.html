@@ -40,6 +40,7 @@
     display: flex; align-items: center; gap: 8px;
     padding: 8px 12px; background: #2c2c2c;
     border-bottom: 1px solid #444; flex-wrap: wrap;
+    flex-shrink: 0;
   }
   #toolbar button, #toolbar input {
     background: #3a3a3a; color: #eee; border: 1px solid #555;
@@ -59,12 +60,21 @@
 
   #main { flex: 1; display: flex; overflow: hidden; position: relative; }
 
-  #canvas {
+  /* ===== キャンバス (FigJam風に広くスクロール可能) ===== */
+  #canvasWrap {
     flex: 1; position: relative;
-    background: #f7f7f9; overflow: hidden;
+    overflow: auto;
+    background: #e8e8ec;
+  }
+  #canvas {
+    position: relative;
+    width: 5000px;
+    height: 4000px;
+    background: #f7f7f9;
     background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
     background-size: 24px 24px;
-    cursor: default; user-select: none;
+    cursor: default;
+    user-select: none;
     touch-action: none;
   }
   #canvas.no-grid { background-image: none; }
@@ -84,7 +94,6 @@
   .element {
     position: absolute; user-select: none;
     transition: box-shadow 0.15s;
-    /* 重要: 位置変更時にtransitionを付けない（追従遅延を防止） */
   }
   .element:hover:not(.has-script):not(.locked) {
     box-shadow: 0 0 0 2px rgba(13,153,255,0.3);
@@ -145,7 +154,7 @@
   }
   .element.has-script:hover .drag-bar,
   .element.has-script.selected .drag-bar { opacity: 1; }
-  .element.has-script.locked .drag-bar { background: rgba(243,156,18,0.95); }
+  .element.has-script.locked .drag-bar { background: rgba(243,156,18,0.95); cursor: default; }
 
   .element.has-script .script-wrapper {
     width: 100%; height: 100%;
@@ -198,6 +207,7 @@
   }
   .element .script-badge.has-action { background: #27ae60; }
   .element .script-badge.group-action { background: #9b59b6; }
+  .element .script-badge.has-sound { background: #e74c3c; }
 
   .element .name-label {
     position: absolute;
@@ -212,10 +222,13 @@
     text-overflow: ellipsis;
     z-index: 14;
   }
-  .element.has-name .name-label { display: block; }
+  .element.show-name .name-label { display: block; }
   .element.selected .name-label { display: block; }
   .element.locked .name-label { background: #f39c12; }
   .element.group-selected .name-label { background: #f39c12; }
+  /* 名前非表示設定 */
+  .element.hide-name .name-label { display: none !important; }
+  .element.hide-name.selected .name-label { display: none !important; }
 
   .group-indicator {
     position: absolute;
@@ -386,6 +399,11 @@
     border: 1px solid #555; border-radius: 4px;
     padding: 5px 8px; font-size: 12px;
   }
+  #propPanel select {
+    background: #1a1a1a; color: #eee;
+    border: 1px solid #555; border-radius: 4px;
+    padding: 5px 8px; font-size: 12px;
+  }
   #propPanel .name-input { width: 130px; }
   #propPanel button {
     background: #3a3a3a; color: #eee;
@@ -521,7 +539,7 @@
     gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
   }
   #visualScript label { font-size: 12px; color: #aaa; min-width: 80px; }
-  #visualScript select, #visualScript input[type="text"], #visualScript input[type="number"] {
+  #visualScript select, #visualScript input[type="text"], #visualScript input[type="number"], #visualScript input[type="url"] {
     background: #2a2a2a; color: #eee;
     border: 1px solid #555; border-radius: 4px;
     padding: 6px 10px; font-size: 13px;
@@ -553,6 +571,7 @@
   #visualScript .vs-preview .badge.green { background: #27ae60; }
   #visualScript .vs-preview .badge.blue { background: #0d99ff; }
   #visualScript .vs-preview .badge.orange { background: #f39c12; }
+  #visualScript .vs-preview .badge.red { background: #e74c3c; }
 
   .group-member-list {
     background: #1f1f1f; border-radius: 6px;
@@ -692,6 +711,8 @@
     padding: 6px 10px; border-radius: 4px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     pointer-events: none;
+    position: fixed;
+    z-index: 5000;
   }
   #users { display: flex; gap: 4px; align-items: center; }
   .user-dot {
@@ -765,7 +786,7 @@
   #banScreen .msg { font-size: 14px; color: #666; }
 
   #hint {
-    position: absolute; top: 12px; left: 50%;
+    position: fixed; top: 60px; left: 50%;
     transform: translateX(-50%);
     background: rgba(13,153,255,0.95);
     color: white; padding: 6px 14px;
@@ -775,6 +796,18 @@
     transition: opacity 0.3s; z-index: 100;
   }
   #hint.show { opacity: 1; }
+  #groupHint {
+    position: fixed; top: 60px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(243,156,18,0.95);
+    color: white; padding: 6px 14px;
+    border-radius: 20px; font-size: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.3s; z-index: 101;
+    font-weight: 600;
+  }
+  #groupHint.show { opacity: 1; }
   #pasteHint {
     position: fixed; bottom: 80px; left: 50%;
     transform: translateX(-50%);
@@ -804,19 +837,6 @@
     transition: transform 0.2s;
   }
   .toggle.on::after { transform: translateX(20px); }
-
-  #groupHint {
-    position: absolute; top: 12px; left: 50%;
-    transform: translateX(-50%);
-    background: rgba(243,156,18,0.95);
-    color: white; padding: 6px 14px;
-    border-radius: 20px; font-size: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    pointer-events: none; opacity: 0;
-    transition: opacity 0.3s; z-index: 101;
-    font-weight: 600;
-  }
-  #groupHint.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -850,6 +870,7 @@
   <button id="logBtn" title="ログ">📜 ログ</button>
   <button id="bgmBtn" title="BGM">🎵 BGM</button>
   <button id="clearBtn">🗑 全消去</button>
+  <button id="resetViewBtn" title="表示位置をリセット">🎯 中央</button>
   <span class="sep"></span>
   <div class="coord-display" id="coordDisplay">X: --  Y: --</div>
   <span class="sep"></span>
@@ -860,13 +881,16 @@
 </div>
 
 <div id="main">
-  <div id="canvas">
-    <div class="selection-rect" id="selectionRect"></div>
-    <div id="hint"></div>
-    <div id="groupHint"></div>
-    <div id="status">未接続</div>
+  <div id="canvasWrap">
+    <div id="canvas">
+      <div class="selection-rect" id="selectionRect"></div>
+    </div>
   </div>
 </div>
+
+<div id="hint"></div>
+<div id="groupHint"></div>
+<div id="status">未接続</div>
 
 <div id="myBubble">
   <div class="bubble-wrap">
@@ -897,7 +921,6 @@
         • <strong>CSS</strong>: 見た目を整える（色、サイズ、アニメーション）<br>
         • <strong>JavaScript</strong>: 動きをつける（クリック時の動作など）<br>
         <br>
-        <strong>⚠️ 注意</strong>: このコードはサンドボックス内で動きます。親ページにはアクセスできません。<br>
         <strong>通知を送る</strong>: <code>parent.postMessage({type:'notify', text:'Hello'}, '*')</code>
       </div>
       <textarea id="codeTextarea" spellcheck="false"></textarea>
@@ -953,6 +976,7 @@
             <option value="move">指定座標に移動</option>
             <option value="color">色を変更</option>
             <option value="notify">メッセージ表示</option>
+            <option value="playSound">🎵 音楽を再生</option>
             <option value="selfColor">自分自身の色を変更</option>
             <option value="selfToggle">自分自身の表示/非表示</option>
           </select>
@@ -976,6 +1000,27 @@
         <div class="vs-row" id="vsTextRow" style="display:none">
           <label>メッセージ</label>
           <input type="text" id="vsText" placeholder="Hello!" style="width:100%;">
+        </div>
+        <div class="vs-row" id="vsSoundRow" style="display:none; flex-direction: column; align-items: stretch;">
+          <label style="margin-bottom: 6px;">🎵 音声URL（mp3等）</label>
+          <input type="url" id="vsSoundUrl" placeholder="https://example.com/music.mp3" style="width:100%;">
+          <div style="display:flex;gap:8px;margin-top:6px;">
+            <input type="file" id="vsSoundFile" accept="audio/*" style="flex:1;background:#2a2a2a;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 8px;font-size:11px;">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+            <label style="font-size:11px;">音量</label>
+            <input type="range" id="vsSoundVolume" min="0" max="100" value="100" style="flex:1;">
+            <span id="vsSoundVolLabel" style="font-size:11px;color:#999;min-width:36px;text-align:right;">100%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+            <label style="font-size:11px;">再生方法</label>
+            <select id="vsSoundMode" style="flex:1;">
+              <option value="once">1回だけ再生</option>
+              <option value="loop">ループ再生</option>
+              <option value="stop">停止</option>
+            </select>
+          </div>
+          <div style="font-size:11px;color:#666;margin-top:6px;">※ 自分にのみ再生されます</div>
         </div>
         <div class="vs-preview" id="vsPreview">🎯 クリック → 対象を表示</div>
       </div>
@@ -1127,6 +1172,7 @@
 </div>
 
 <audio id="bgmAudio" loop></audio>
+<audio id="actionAudio"></audio>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -1154,7 +1200,7 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
-const SETTINGS_KEY = 'figmadg-settings-v4';
+const SETTINGS_KEY = 'figmadg-settings-v5';
 const DEFAULT_SETTINGS = {
   showGrid: true, showRemoteCursors: true, showCoordDisplay: true,
   showCoordToast: true, logAutoShow: true, logCoord: true,
@@ -1172,7 +1218,6 @@ function saveSettings() {
 }
 loadSettings();
 
-// 状態
 let currentUser = null;
 let isAdmin = false;
 let roomId = null;
@@ -1187,7 +1232,7 @@ let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
 let currentDragId = null;
 let dragGroupMembers = null;
-let dragStartPositions = {}; // ドラッグ開始時の各要素の座標を記録
+let dragStartPositions = {};
 let resizeState = null;
 let selectedIds = new Set();
 let selectedGroupId = null;
@@ -1203,10 +1248,10 @@ let editingActionData = {};
 let scriptLogLines = [];
 let isSelecting = false;
 let selectionStart = { x: 0, y: 0 };
-// ドラッグ中のDB更新スロットリング用
-let lastUpdateTime = 0;
-let pendingUpdates = null;
+// 埋め込み音声の管理
+let activeSounds = {}; // { elementId: Audio }
 
+const canvasWrap = document.getElementById('canvasWrap');
 const canvas = document.getElementById('canvas');
 const selectionRect = document.getElementById('selectionRect');
 const statusEl = document.getElementById('status');
@@ -1250,6 +1295,7 @@ const COMMANDS = [
   { id: 'image',    icon: '🖼', name: '画像URL',     cmd: '/image',    desc: 'URLから' },
   { id: 'button',   icon: '🔘', name: 'ボタン',      cmd: '/button',   desc: 'スクリプト付き' },
   { id: 'chat',     icon: '💭', name: 'チャット',    cmd: '/chat',     desc: 'チャット開く' },
+  { id: 'center',   icon: '🎯', name: '中央へ移動',   cmd: '/center',   desc: '視点を中央へ' },
   { id: 'clear',    icon: '🗑', name: '全消去',      cmd: '/clear',    desc: '全要素削除' },
 ];
 
@@ -1317,14 +1363,50 @@ function getElementSize(el) {
     default: return { w: 100, h: 100 };
   }
 }
+
+// ============ ロック判定（強化） ============
+// 本人以外は絶対に移動・編集不可
 function isElementLocked(el) {
   if (!el) return false;
   if (el.locked) {
-    if (isAdmin) return false;
-    const isOwner = (el.authorUid && el.authorUid === currentUser?.uid);
+    // 本人のみ解除可能
+    const isOwner = el.authorUid && el.authorUid === currentUser?.uid;
     if (!isOwner) return true;
   }
   return false;
+}
+// 本人が編集可能か（ロックに関係なく自分の要素なら）
+function canEdit(el) {
+  if (!el) return false;
+  const isOwner = el.authorUid && el.authorUid === currentUser?.uid;
+  // ロックされていても本人は操作可能
+  if (el.locked) return isOwner;
+  return true;
+}
+// 移動可能か
+function canMove(el) {
+  if (!el) return false;
+  return !isElementLocked(el);
+}
+
+// ============ レイヤー配置 ============
+async function setLayerPosition(id, position) {
+  // position: 'front' | 'forward' | 'backward' | 'back'
+  const el = elements[id];
+  if (!el) return;
+  const zValues = Object.values(elements).map(e => e.z || 1).filter(z => typeof z === 'number');
+  const maxZ = Math.max(...zValues, 1);
+  const minZ = Math.min(...zValues, 1);
+
+  let newZ;
+  switch(position) {
+    case 'front':    newZ = maxZ + 1000; break;
+    case 'forward':  newZ = (el.z || 1) + 10; break;
+    case 'backward': newZ = Math.max(1, (el.z || 1) - 10); break;
+    case 'back':     newZ = Math.max(0, minZ - 1000); break;
+    default:         newZ = el.z || 1;
+  }
+  await update(ref(db, `rooms/${roomId}/elements/${id}`), { z: newZ });
 }
 
 function applySettings() {
@@ -1464,8 +1546,40 @@ document.getElementById('googleLogin').addEventListener('click', async () => {
 });
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   if (myCursorRef) { try { await remove(myCursorRef); } catch(e){} }
+  // 停止中の音声
+  Object.values(activeSounds).forEach(a => { try { a.pause(); } catch(e){} });
   await signOut(auth);
   location.reload();
+});
+
+// 中央へ移動ボタン
+document.getElementById('resetViewBtn').addEventListener('click', () => {
+  // 全要素の中心にスクロール
+  const els = Object.values(elements);
+  if (els.length === 0) {
+    canvasWrap.scrollTo({
+      left: canvas.clientWidth / 2 - canvasWrap.clientWidth / 2,
+      top: canvas.clientHeight / 2 - canvasWrap.clientHeight / 2,
+      behavior: 'smooth'
+    });
+    return;
+  }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  els.forEach(el => {
+    const s = getElementSize(el);
+    minX = Math.min(minX, el.x);
+    minY = Math.min(minY, el.y);
+    maxX = Math.max(maxX, el.x + s.w);
+    maxY = Math.max(maxY, el.y + s.h);
+  });
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  canvasWrap.scrollTo({
+    left: centerX - canvasWrap.clientWidth / 2,
+    top: centerY - canvasWrap.clientHeight / 2,
+    behavior: 'smooth'
+  });
+  showHint('🎯 中央へ移動');
 });
 
 function showBanScreen() {
@@ -1527,6 +1641,9 @@ function joinRoom(id) {
   canvas.querySelectorAll('.element, .remote-cursor, .cursor-bubble, .group-indicator').forEach(el => el.remove());
   elements = {}; elementRefs = {}; groups = {}; groupIndicators = {};
   usersEl.innerHTML = '';
+  // 停止中の音声を停止
+  Object.values(activeSounds).forEach(a => { try { a.pause(); } catch(e){} });
+  activeSounds = {};
 
   roomId = id;
   statusEl.textContent = `📁 ${roomId}  |  ${currentUser.displayName || currentUser.email}`;
@@ -1589,7 +1706,8 @@ function joinRoom(id) {
       const needsRebuild = isNew || (oldEl && (
         oldEl.type !== el.type ||
         (oldEl.code && !el.code) || (!oldEl.code && el.code) ||
-        (oldEl.action && !el.action) || (!oldEl.action && el.action)
+        (oldEl.action && !el.action) || (!oldEl.action && el.action) ||
+        oldEl.hideName !== el.hideName
       ));
 
       if (needsRebuild) {
@@ -1629,15 +1747,9 @@ function joinRoom(id) {
   if (settings.autoChat) toggleChat(true);
 }
 
-function getCanvasCoords(e) {
-  const rect = canvas.getBoundingClientRect();
-  return { x: Math.round(e.clientX - rect.left), y: Math.round(e.clientY - rect.top) };
-}
-
 // ============ マウスダウン ============
 canvas.addEventListener('mousedown', (e) => {
   if (!currentUser) return;
-  // キャンバス（何もないところ）
   if (e.target === canvas || e.target.id === 'selectionRect') {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -1700,32 +1812,27 @@ canvas.addEventListener('mousemove', e => {
     selectionRect.style.height = (y2 - y1) + 'px';
   }
 
-  // ドラッグ移動: 座標を直接計算（要素の座標を基準）
   if (isDragging && currentDragId && dragStartPositions[currentDragId]) {
     const startPos = dragStartPositions[currentDragId];
     const dx = x - dragOffset.x - startPos.x;
     const dy = y - dragOffset.y - startPos.y;
 
-    // 対象要素（グループ or 複数選択 or 単一）
     const targetIds = dragGroupMembers && dragGroupMembers.length > 0
       ? dragGroupMembers
       : (selectedIds.size > 1 && selectedIds.has(currentDragId)
           ? Array.from(selectedIds)
           : [currentDragId]);
 
-    // 各要素を移動
     targetIds.forEach(mid => {
       const mdom = elementRefs[mid];
       const mel = elements[mid];
       const mStart = dragStartPositions[mid];
       if (!mdom || !mel || !mStart) return;
-      if (isElementLocked(mel)) return;
-      // 開始座標 + 移動量 で計算（累積誤差なし）
+      if (!canMove(mel)) return; // ロックされている要素は動かさない
       mdom.style.left = (mStart.x + dx) + 'px';
       mdom.style.top = (mStart.y + dy) + 'px';
     });
 
-    // グループインジケータを即時更新
     if (dragGroupMembers && dragGroupMembers.length > 0) {
       updateGroupIndicatorsForMembers(dragGroupMembers);
     }
@@ -1751,9 +1858,7 @@ canvas.addEventListener('mousemove', e => {
   }
 });
 
-// グループインジケータを即時更新（パフォーマンス重視）
 function updateGroupIndicatorsForMembers(memberIds) {
-  // 影響を受けるグループを特定
   const affectedGroups = new Set();
   memberIds.forEach(mid => {
     const el = elements[mid];
@@ -1816,19 +1921,17 @@ document.addEventListener('mouseup', async (e) => {
     selectionRect.classList.remove('show');
   }
 
-  // ドラッグ終了時にDBへ保存
   if (isDragging && currentDragId) {
     const targetIds = dragGroupMembers && dragGroupMembers.length > 0
       ? dragGroupMembers
       : (selectedIds.size > 1 && selectedIds.has(currentDragId)
           ? Array.from(selectedIds)
           : [currentDragId]);
-    // 一括更新
     const updates = {};
     targetIds.forEach(mid => {
       const dom = elementRefs[mid];
       const mel = elements[mid];
-      if (dom && mel && !isElementLocked(mel)) {
+      if (dom && mel && canMove(mel)) {
         updates[`elements/${mid}/x`] = parseInt(dom.style.left);
         updates[`elements/${mid}/y`] = parseInt(dom.style.top);
       }
@@ -1837,14 +1940,12 @@ document.addEventListener('mouseup', async (e) => {
       try {
         await update(ref(db, `rooms/${roomId}`), updates);
       } catch(err) {
-        // フォールバック: 個別更新
         for (const mid of targetIds) {
           const dom = elementRefs[mid];
           const mel = elements[mid];
-          if (dom && mel && !isElementLocked(mel)) {
+          if (dom && mel && canMove(mel)) {
             await update(ref(db, `rooms/${roomId}/elements/${mid}`), {
-              x: parseInt(dom.style.left),
-              y: parseInt(dom.style.top)
+              x: parseInt(dom.style.left), y: parseInt(dom.style.top)
             }).catch(()=>{});
           }
         }
@@ -1857,7 +1958,7 @@ document.addEventListener('mouseup', async (e) => {
   if (resizeState) {
     const { id, newW, newH, newX, newY } = resizeState;
     const sel = elements[id];
-    if (newW && newH && !isElementLocked(sel)) {
+    if (newW && newH && canMove(sel)) {
       await update(ref(db, `rooms/${roomId}/elements/${id}`), {
         width: Math.round(newW),
         height: Math.round(newH),
@@ -1890,6 +1991,7 @@ function createElementDOM(id, el) {
 
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
   const hasAction = el.action && el.action.action;
+  const hasSound = el.action && el.action.action === 'playSound';
   const group = el.groupId ? groups[el.groupId] : null;
   const groupHasAction = group && group.action && group.action.action;
 
@@ -1897,7 +1999,8 @@ function createElementDOM(id, el) {
   nameLabel.className = 'name-label';
   nameLabel.textContent = el.name || TYPE_LABEL[el.type] || el.type;
   div.appendChild(nameLabel);
-  if (el.name) div.classList.add('has-name');
+  if (el.name) div.classList.add('show-name');
+  if (el.hideName) div.classList.add('hide-name');
 
   if (hasCode) {
     div.classList.add('has-script');
@@ -1931,8 +2034,8 @@ function createElementDOM(id, el) {
     div.appendChild(outline);
 
     const badge = document.createElement('div');
-    badge.className = 'script-badge' + (hasAction ? ' has-action' : '') + (groupHasAction ? ' group-action' : '');
-    badge.textContent = hasAction ? '🎯' : (hasCode ? '⚡' : '');
+    badge.className = 'script-badge' + (hasAction ? ' has-action' : '') + (groupHasAction ? ' group-action' : '') + (hasSound ? ' has-sound' : '');
+    badge.textContent = hasSound ? '🔊' : (hasAction ? '🎯' : (hasCode ? '⚡' : ''));
     div.appendChild(badge);
   } else {
     switch (el.type) {
@@ -2042,7 +2145,7 @@ function startDragFromBar(e, id) {
   e.preventDefault();
   const el = elements[id];
   if (!el) return;
-  if (isElementLocked(el)) { showHint('🔒 ロック中'); return; }
+  if (isElementLocked(el)) { showHint('🔒 本人以外は移動できません'); return; }
   if (e.shiftKey || e.metaKey || e.ctrlKey) { toggleSelection(id); return; }
   selectElement(id, true);
   startDrag(id);
@@ -2050,23 +2153,21 @@ function startDragFromBar(e, id) {
 function startDrag(id) {
   const el = elements[id];
   if (!el) return;
+  if (!canMove(el)) { showHint('🔒 本人以外は移動できません'); return; }
   isDragging = true;
   currentDragId = id;
   const rect = canvas.getBoundingClientRect();
-  // マウスの現在位置から、要素内のどこを掴んだかを計算
   dragOffset.x = (window._lastMouseX - rect.left) - el.x;
   dragOffset.y = (window._lastMouseY - rect.top) - el.y;
   const dom = elementRefs[id];
   if (dom) dom.classList.add('dragging');
 
-  // ドラッグ対象のメンバーを決定
   if (el.groupId && groups[el.groupId] && groups[el.groupId].members) {
     dragGroupMembers = groups[el.groupId].members.filter(m => elements[m]);
   } else {
     dragGroupMembers = null;
   }
 
-  // 全対象の開始座標を記録（累積誤差防止）
   dragStartPositions = {};
   const targetIds = dragGroupMembers && dragGroupMembers.length > 0
     ? dragGroupMembers
@@ -2115,7 +2216,6 @@ function clearGroupSelection() {
   if (selectedGroupId) {
     const ind = groupIndicators[selectedGroupId];
     if (ind) ind.classList.remove('selected');
-    // メンバーのハイライト解除
     const g = groups[selectedGroupId];
     if (g && g.members) {
       g.members.forEach(mid => {
@@ -2139,7 +2239,7 @@ function onElementMouseDown(e) {
   if (!el) return;
   if (e.shiftKey || e.metaKey || e.ctrlKey) { toggleSelection(id); return; }
   selectElement(id, true);
-  if (isElementLocked(el)) { showHint('🔒 ロック中'); return; }
+  if (!canMove(el)) { showHint('🔒 本人以外は移動できません'); return; }
   startDrag(id);
 }
 
@@ -2147,7 +2247,7 @@ function startResize(e, id, pos) {
   e.stopPropagation();
   e.preventDefault();
   const el = elements[id];
-  if (isElementLocked(el)) { showHint('🔒 リサイズ不可'); return; }
+  if (isElementLocked(el)) { showHint('🔒 本人以外はサイズ変更できません'); return; }
   const dom = elementRefs[id];
   if (!dom) return;
   const rect = canvas.getBoundingClientRect();
@@ -2167,7 +2267,7 @@ function onElementDblClick(e) {
   const id = div.dataset.id;
   const el = elements[id];
   if (!el) return;
-  if (isElementLocked(el)) { showHint('🔒 ロック中'); return; }
+  if (isElementLocked(el)) { showHint('🔒 本人以外は編集できません'); return; }
   if (div.classList.contains('has-script')) { openCodeEditor(id); return; }
   if (!['sticky','text','comment'].includes(el.type)) return;
   if (div.contentEditable === 'true') return;
@@ -2370,10 +2470,12 @@ function showPropPanel() {
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
   const hasAction = el.action && el.action.action;
   const locked = isElementLocked(el);
+  const isOwner = el.authorUid === currentUser.uid;
   const isTextType = ['sticky','text','comment'].includes(el.type);
   const isShapeType = ['rect','circle','triangle','arrow'].includes(el.type);
   const isSticky = el.type === 'sticky';
   const isStamp = el.type === 'stamp';
+  const canEditThis = isOwner || !el.locked;
 
   const gName = document.createElement('div');
   gName.className = 'pp-group';
@@ -2421,31 +2523,35 @@ function showPropPanel() {
     propPanel.appendChild(gInfo);
   }
 
+  // ロック（本人のみ操作可能）
   const gLock = document.createElement('div');
   gLock.className = 'pp-group';
   const lockBtn = document.createElement('button');
   lockBtn.className = 'lock-btn' + (el.locked ? '' : ' unlocked');
-  const isOwner = el.authorUid === currentUser.uid || isAdmin;
   if (!isOwner) {
     lockBtn.classList.add('disabled');
     lockBtn.textContent = el.locked ? '🔒 ロック中' : '🔓 自由';
     lockBtn.disabled = true;
+    lockBtn.title = '本人のみ変更可能';
   } else {
-    lockBtn.textContent = el.locked ? '🔒 ロック中' : '🔓 ロックする';
+    lockBtn.textContent = el.locked ? '🔒 ロック中（クリックで解除）' : '🔓 ロックする';
     lockBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { locked: !el.locked }));
   }
   gLock.appendChild(lockBtn);
   propPanel.appendChild(gLock);
 
-  if (locked) {
-    const gLocked = document.createElement('div');
-    gLocked.className = 'pp-group';
-    const lockedMsg = document.createElement('div');
-    lockedMsg.className = 'pos-info';
-    lockedMsg.style.color = '#f39c12';
-    lockedMsg.textContent = '🔒 ロック中（動作は実行可能）';
-    gLocked.appendChild(lockedMsg);
-    propPanel.appendChild(gLocked);
+  // 名前表示切替（本人のみ）
+  if (isOwner) {
+    const gNameShow = document.createElement('div');
+    gNameShow.className = 'pp-group';
+    const nameShowBtn = document.createElement('button');
+    nameShowBtn.textContent = el.hideName ? '👁 名前を表示' : '🙈 名前を隠す';
+    nameShowBtn.title = '名前ラベルの表示/非表示（自分のみ）';
+    nameShowBtn.addEventListener('click', () => {
+      update(ref(db, `rooms/${roomId}/elements/${id}`), { hideName: !el.hideName });
+    });
+    gNameShow.appendChild(nameShowBtn);
+    propPanel.appendChild(gNameShow);
   }
 
   if (!locked) {
@@ -2466,6 +2572,28 @@ function showPropPanel() {
     codeBtn.addEventListener('click', () => openCodeEditor(id));
     gScript.appendChild(codeBtn);
     propPanel.appendChild(gScript);
+
+    // レイヤー配置
+    const gLayer = document.createElement('div');
+    gLayer.className = 'pp-group';
+    gLayer.innerHTML = `<label>配置</label>`;
+    const layerSelect = document.createElement('select');
+    layerSelect.title = 'レイヤー配置';
+    layerSelect.innerHTML = `
+      <option value="">— 選択 —</option>
+      <option value="front">最前面へ</option>
+      <option value="forward">前面へ</option>
+      <option value="backward">背面へ</option>
+      <option value="back">最背面へ</option>
+    `;
+    layerSelect.addEventListener('change', () => {
+      if (layerSelect.value) {
+        setLayerPosition(id, layerSelect.value);
+        layerSelect.value = '';
+      }
+    });
+    gLayer.appendChild(layerSelect);
+    propPanel.appendChild(gLayer);
 
     if (!hasCode && (isTextType || isShapeType || isSticky)) {
       const g = document.createElement('div');
@@ -2492,6 +2620,59 @@ function showPropPanel() {
       propPanel.appendChild(g);
     }
 
+    // フォントの太さ（テキスト系のみ）
+    if (!hasCode && isTextType) {
+      const gWeight = document.createElement('div');
+      gWeight.className = 'pp-group';
+      gWeight.innerHTML = `<label>太さ</label>`;
+      const weightSelect = document.createElement('select');
+      weightSelect.title = 'フォントの太さ';
+      const weights = [
+        { v: 100, l: '100 (極細)' },
+        { v: 200, l: '200' },
+        { v: 300, l: '300 (細)' },
+        { v: 400, l: '400 (標準)' },
+        { v: 500, l: '500' },
+        { v: 600, l: '600 (中太)' },
+        { v: 700, l: '700 (太字)' },
+        { v: 800, l: '800' },
+        { v: 900, l: '900 (極太)' }
+      ];
+      weights.forEach(w => {
+        const opt = document.createElement('option');
+        opt.value = w.v;
+        opt.textContent = w.l;
+        weightSelect.appendChild(opt);
+      });
+      weightSelect.value = el.fontWeight || (el.bold ? 700 : 400);
+      weightSelect.addEventListener('change', () => {
+        update(ref(db, `rooms/${roomId}/elements/${id}`), { fontWeight: parseInt(weightSelect.value) });
+      });
+      gWeight.appendChild(weightSelect);
+      propPanel.appendChild(gWeight);
+    }
+
+    // 太字・斜体（旧来のもの）
+    if (!hasCode && isTextType) {
+      const g = document.createElement('div');
+      g.className = 'pp-group';
+      const boldBtn = document.createElement('button');
+      boldBtn.textContent = 'B';
+      boldBtn.style.fontWeight = 'bold';
+      if (el.bold) boldBtn.classList.add('active');
+      boldBtn.title = '太字切替';
+      boldBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { bold: !el.bold }));
+      const italicBtn = document.createElement('button');
+      italicBtn.textContent = 'I';
+      italicBtn.style.fontStyle = 'italic';
+      if (el.italic) italicBtn.classList.add('active');
+      italicBtn.title = '斜体切替';
+      italicBtn.addEventListener('click', () => update(ref(db, `rooms/${roomId}/elements/${id}`), { italic: !el.italic }));
+      g.appendChild(boldBtn);
+      g.appendChild(italicBtn);
+      propPanel.appendChild(g);
+    }
+
     const gVis = document.createElement('div');
     gVis.className = 'pp-group';
     const visBtn = document.createElement('button');
@@ -2504,6 +2685,7 @@ function showPropPanel() {
     gDup.className = 'pp-group';
     const dupBtn = document.createElement('button');
     dupBtn.textContent = '⧉';
+    dupBtn.title = '複製';
     dupBtn.addEventListener('click', async () => {
       const newId = newElemId();
       const copy = JSON.parse(JSON.stringify(el));
@@ -2581,7 +2763,7 @@ async function alignElements(mode) {
   });
   for (const id of ids) {
     const el = elements[id];
-    if (!el || isElementLocked(el)) continue;
+    if (!el || !canMove(el)) continue;
     const size = getElementSize(el);
     let newX = el.x, newY = el.y;
     if (mode === 'left') newX = minX;
@@ -2717,6 +2899,10 @@ function openVisualScript(elementId, groupId) {
 
   document.getElementById('vsColor').value = currentAction.color || '#0d99ff';
   document.getElementById('vsText').value = currentAction.text || '';
+  document.getElementById('vsSoundUrl').value = currentAction.soundUrl || '';
+  document.getElementById('vsSoundVolume').value = currentAction.soundVolume ?? 100;
+  document.getElementById('vsSoundVolLabel').textContent = (currentAction.soundVolume ?? 100) + '%';
+  document.getElementById('vsSoundMode').value = currentAction.soundMode || 'once';
 
   updateVisualRows();
   updateVisualPreview();
@@ -2728,7 +2914,8 @@ function updateVisualRows() {
   document.getElementById('vsCoordRow').style.display = action === 'move' ? 'flex' : 'none';
   document.getElementById('vsColorRow').style.display = (action === 'color' || action === 'selfColor') ? 'flex' : 'none';
   document.getElementById('vsTextRow').style.display = action === 'notify' ? 'flex' : 'none';
-  const needsTarget = !['notify', 'selfColor', 'selfToggle'].includes(action);
+  document.getElementById('vsSoundRow').style.display = action === 'playSound' ? 'flex' : 'none';
+  const needsTarget = !['notify', 'selfColor', 'selfToggle', 'playSound'].includes(action);
   document.getElementById('vsTargetRow').style.display = needsTarget ? 'flex' : 'none';
 }
 
@@ -2742,6 +2929,7 @@ function updateVisualPreview() {
     show: 'を表示', hide: 'を隠す', toggle: 'の表示/非表示を切替',
     appear: 'をフェードイン', disappear: 'をフェードアウト',
     move: 'を移動', color: 'の色を変更', notify: 'メッセージを表示',
+    playSound: '音楽を再生',
     selfColor: '自分の色を変更', selfToggle: '自分の表示を切替'
   }[action];
 
@@ -2760,15 +2948,43 @@ function updateVisualPreview() {
     preview += ` 自分の表示/非表示を切替`;
   } else if (action === 'color') {
     preview += ` ${targetLabel} の色を <span class="badge">${document.getElementById('vsColor').value}</span> に変更`;
+  } else if (action === 'playSound') {
+    const mode = document.getElementById('vsSoundMode').value;
+    const modeText = { once: '1回', loop: 'ループ', stop: '停止' }[mode];
+    const vol = document.getElementById('vsSoundVolume').value;
+    preview += ` 🔊 <span class="badge red">音楽を${modeText}再生（音量 ${vol}%）</span>`;
   } else {
     preview += ` ${targetLabel} ${actionText}`;
   }
   document.getElementById('vsPreview').innerHTML = preview;
 }
 
-['vsTrigger','vsAction','vsTarget','vsX','vsY','vsColor','vsText'].forEach(id => {
-  document.getElementById(id).addEventListener('change', () => { updateVisualRows(); updateVisualPreview(); });
-  document.getElementById(id).addEventListener('input', updateVisualPreview);
+['vsTrigger','vsAction','vsTarget','vsX','vsY','vsColor','vsText','vsSoundUrl','vsSoundVolume','vsSoundMode'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('change', () => { updateVisualRows(); updateVisualPreview(); });
+    el.addEventListener('input', updateVisualPreview);
+  }
+});
+// 音量ラベル
+document.getElementById('vsSoundVolume').addEventListener('input', (e) => {
+  document.getElementById('vsSoundVolLabel').textContent = e.target.value + '%';
+});
+// ファイル選択
+document.getElementById('vsSoundFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  // 4MB以下はBASE64で保存
+  if (file.size > 4 * 1024 * 1024) {
+    showHint('⚠️ ファイルが大きすぎます（4MB以下）');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    document.getElementById('vsSoundUrl').value = reader.result;
+    showHint('🎵 音声を読み込みました');
+  };
+  reader.readAsDataURL(file);
 });
 document.getElementById('vsClose').addEventListener('click', () => visualModal.classList.remove('show'));
 document.getElementById('vsClose2').addEventListener('click', () => visualModal.classList.remove('show'));
@@ -2781,7 +2997,10 @@ document.getElementById('vsSave').addEventListener('click', async () => {
     x: parseInt(document.getElementById('vsX').value) || 0,
     y: parseInt(document.getElementById('vsY').value) || 0,
     color: document.getElementById('vsColor').value,
-    text: document.getElementById('vsText').value
+    text: document.getElementById('vsText').value,
+    soundUrl: document.getElementById('vsSoundUrl').value,
+    soundVolume: parseInt(document.getElementById('vsSoundVolume').value) || 100,
+    soundMode: document.getElementById('vsSoundMode').value
   };
   if (editingActionGroupId) {
     await update(ref(db, `rooms/${roomId}/groups/${editingActionGroupId}`), { action });
@@ -2828,10 +3047,54 @@ async function runGroupAction(gid, triggerType) {
   await executeAction(g.action, repId, g);
 }
 
+// ============ 音声再生 ============
+function playActionSound(soundUrl, volume, mode, elementId) {
+  if (!soundUrl) return;
+  try {
+    if (mode === 'stop') {
+      // 停止
+      if (activeSounds[elementId]) {
+        activeSounds[elementId].pause();
+        activeSounds[elementId].currentTime = 0;
+        delete activeSounds[elementId];
+      }
+      return;
+    }
+    // 既存の音声を停止
+    if (activeSounds[elementId]) {
+      activeSounds[elementId].pause();
+      activeSounds[elementId].currentTime = 0;
+    }
+    const audio = new Audio(soundUrl);
+    audio.volume = (volume || 100) / 100;
+    audio.loop = (mode === 'loop');
+    audio.play().catch(err => {
+      console.warn('Audio play failed:', err);
+      showHint('⚠️ 音声の再生に失敗しました（クリックが必要かも）');
+    });
+    activeSounds[elementId] = audio;
+    // 1回再生の場合は終了時に削除
+    if (mode === 'once') {
+      audio.addEventListener('ended', () => {
+        delete activeSounds[elementId];
+      });
+    }
+    showHint('🔊 再生中');
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 async function executeAction(a, selfId, group) {
   if (a.action === 'notify') {
     showHint('📢 ' + (a.text || 'メッセージ'));
     addLog('event', `📢 ${a.text}`);
+    return;
+  }
+  if (a.action === 'playSound') {
+    // 音声はサウンドURLをそのまま再生
+    playActionSound(a.soundUrl, a.soundVolume, a.soundMode, selfId || 'group_' + (group ? group.members[0] : ''));
+    addLog('event', `🔊 音楽を再生`);
     return;
   }
   if (a.action === 'selfColor') {
@@ -2988,14 +3251,18 @@ ${code.html || ''}
 function applyTextStyle(dom, el) {
   if (el.fontSize) dom.style.fontSize = el.fontSize + 'px';
   if (el.color) dom.style.color = el.color;
-  if (el.bold) dom.style.fontWeight = 'bold';
+  // fontWeight 優先、なければ bold
+  if (el.fontWeight) {
+    dom.style.fontWeight = el.fontWeight;
+  } else if (el.bold) {
+    dom.style.fontWeight = 'bold';
+  }
   if (el.italic) dom.style.fontStyle = 'italic';
 }
 
 function updateElementDOM(id, el) {
   const dom = elementRefs[id];
   if (!dom) return;
-  // ドラッグ中は位置を上書きしない
   if (!dom.classList.contains('dragging')) {
     dom.style.left = el.x + 'px';
     dom.style.top = el.y + 'px';
@@ -3011,13 +3278,14 @@ function updateElementDOM(id, el) {
     dom.classList.toggle('faded', el.opacity < 0.3);
   }
   dom.classList.toggle('locked', !!el.locked);
+  dom.classList.toggle('hide-name', !!el.hideName);
 
   const nameLabel = dom.querySelector('.name-label');
   if (nameLabel) {
     const name = el.name || '';
     nameLabel.textContent = name || TYPE_LABEL[el.type] || el.type;
-    if (name) dom.classList.add('has-name');
-    else dom.classList.remove('has-name');
+    if (name) dom.classList.add('show-name');
+    else dom.classList.remove('show-name');
   }
 
   const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
@@ -3058,15 +3326,19 @@ function updateElementDOM(id, el) {
     }
   }
   if (el.fontSize) dom.style.fontSize = el.fontSize + 'px';
-  if (el.bold !== undefined) dom.style.fontWeight = el.bold ? 'bold' : 'normal';
+  if (el.fontWeight) dom.style.fontWeight = el.fontWeight;
+  else if (el.bold !== undefined) dom.style.fontWeight = el.bold ? 'bold' : 'normal';
   if (el.italic !== undefined) dom.style.fontStyle = el.italic ? 'italic' : 'normal';
 }
 
 // 要素追加
 async function addElement(type, opts = {}) {
   if (!roomId) return;
-  const cx = canvas.clientWidth / 2 - 80 + (Math.random() - 0.5) * 200;
-  const cy = canvas.clientHeight / 2 - 80 + (Math.random() - 0.5) * 200;
+  // 画面中央付近に配置
+  const centerX = canvasWrap.scrollLeft + canvasWrap.clientWidth / 2;
+  const centerY = canvasWrap.scrollTop + canvasWrap.clientHeight / 2;
+  const cx = centerX - 80 + (Math.random() - 0.5) * 200;
+  const cy = centerY - 80 + (Math.random() - 0.5) * 200;
   const x = opts.x ?? cx;
   const y = opts.y ?? cy;
   const base = {
@@ -3079,11 +3351,11 @@ async function addElement(type, opts = {}) {
   switch (type) {
     case 'sticky':
       autoName = prompt('名前（任意・空でOK）:', '');
-      payload = { ...base, color: pickColor(STICKY_COLORS), content: '', fontSize: 14 };
+      payload = { ...base, color: pickColor(STICKY_COLORS), content: '', fontSize: 14, fontWeight: 400 };
       break;
     case 'text':
       autoName = prompt('名前（任意・空でOK）:', '');
-      payload = { ...base, color: '#222222', content: 'テキスト', fontSize: 18 };
+      payload = { ...base, color: '#222222', content: 'テキスト', fontSize: 18, fontWeight: 400 };
       break;
     case 'rect':
       autoName = prompt('名前（任意・空でOK）:', '');
@@ -3103,7 +3375,7 @@ async function addElement(type, opts = {}) {
       break;
     case 'comment':
       autoName = prompt('名前（任意・空でOK）:', '');
-      payload = { ...base, content: 'コメント', fontSize: 13 };
+      payload = { ...base, content: 'コメント', fontSize: 13, fontWeight: 400 };
       break;
     case 'stamp': {
       const stamp = prompt('絵文字を入力 (例: ⭐):', pickColor(STAMPS));
@@ -3192,6 +3464,9 @@ async function executeCommand(id) {
     case 'image':    await addElement('image'); break;
     case 'button':   await addElement('button'); break;
     case 'chat':     toggleChat(true); break;
+    case 'center':
+      document.getElementById('resetViewBtn').click();
+      break;
     case 'clear':
       if (confirm('全要素を削除しますか？')) {
         remove(ref(db, `rooms/${roomId}/elements`));
@@ -3353,10 +3628,11 @@ function openMyBubble() {
   myBubble.style.transform = `translate(${x}px, ${y}px)`;
   myBubble.classList.add('show');
   setTimeout(() => myBubbleInput.focus(), 50);
+  const rect = canvas.getBoundingClientRect();
   const bubblesRef = ref(db, `rooms/${roomId}/bubbles/${currentUser.uid}`);
   set(bubblesRef, {
-    x: x - canvas.getBoundingClientRect().left,
-    y: y - canvas.getBoundingClientRect().top,
+    x: x - rect.left,
+    y: y - rect.top,
     name: currentUser.displayName || currentUser.email.split('@')[0],
     color: colorForUid(currentUser.uid),
     text: '', timestamp: Date.now()
@@ -3449,8 +3725,10 @@ function resizeImage(dataUrl, maxWidth, quality) {
   });
 }
 async function pasteImage(dataUrl) {
-  const cx = canvas.clientWidth / 2 - 150 + (Math.random() - 0.5) * 200;
-  const cy = canvas.clientHeight / 2 - 150 + (Math.random() - 0.5) * 200;
+  const centerX = canvasWrap.scrollLeft + canvasWrap.clientWidth / 2;
+  const centerY = canvasWrap.scrollTop + canvasWrap.clientHeight / 2;
+  const cx = centerX - 150 + (Math.random() - 0.5) * 200;
+  const cy = centerY - 150 + (Math.random() - 0.5) * 200;
   const newId = newElemId();
   const name = prompt('名前（任意・空でOK）:', '');
   const payload = {
