@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FigmaDG - CollabApp</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #1e1e1e;
+    color: #ddd;
+    overflow: hidden;
+  }
+
+  /* ===== ログイン画面 ===== */
+  #loginScreen {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, #1e1e1e, #2c2c3c);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+  }
+  #loginScreen.hidden { display: none; }
+  .login-box {
+    background: #2a2a2a;
+    padding: 40px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 1px solid #444;
+    max-width: 400px;
+    width: 90%;
+  }
+  .login-box h1 { margin-bottom: 8px; font-size: 24px; }
+  .login-box p { color: #999; font-size: 14px; margin-bottom: 24px; }
+  .g-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #fff;
+    color: #333;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: 0.2s;
+  }
+  .g-btn:hover { background: #f0f0f0; transform: translateY(-1px); }
+  .g-btn svg { width: 20px; height: 20px; }
+  #loginError { color: #e74c3c; margin-top: 16px; font-size: 13px; min-height: 18px; }
+
+  /* ===== ツールバー ===== */
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #2c2c2c;
+    border-bottom: 1px solid #444;
+    flex-wrap: wrap;
+  }
+  #toolbar button, #toolbar input {
+    background: #3a3a3a;
+    color: #eee;
+    border: 1px solid #555;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #toolbar button.active { background: #0d99ff; border-color: #0d99ff; }
+  #toolbar button:hover { background: #4a4a4a; }
+  #toolbar input { cursor: text; }
+  #toolbar strong { white-space: nowrap; }
+
+  #main { flex: 1; display: flex; overflow: hidden; }
+  #canvas {
+    flex: 1;
+    position: relative;
+    background: #f5f5f5;
+    overflow: hidden;
+    cursor: crosshair;
+  }
+  #canvas.mode-select { cursor: default; }
+  #canvas.mode-text { cursor: text; }
+
+  #codePanel {
+    width: 420px;
+    background: #252525;
+    border-left: 1px solid #444;
+    display: flex;
+    flex-direction: column;
+  }
+  .code-tabs { display: flex; border-bottom: 1px solid #444; }
+  .code-tabs button {
+    flex: 1;
+    background: #2c2c2c;
+    color: #aaa;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-size: 13px;
+  }
+  .code-tabs button.active {
+    background: #333;
+    color: #fff;
+    border-bottom-color: #0d99ff;
+  }
+  .code-editor { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+  .code-editor.active { display: flex; }
+  .code-editor textarea {
+    flex: 1;
+    background: #1a1a1a;
+    color: #d4d4d4;
+    border: none;
+    padding: 12px;
+    font-family: "Consolas", "Monaco", monospace;
+    font-size: 12.5px;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+  }
+
+  #previewFrame {
+    position: absolute;
+    top: 30px;
+    left: 20px;
+    width: 500px;
+    height: 400px;
+    border: 2px solid #0d99ff;
+    background: white;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    resize: both;
+  }
+  #previewFrame iframe { width: 100%; height: 100%; border: none; }
+  #previewFrame .frame-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-size: 11px;
+    color: #0d99ff;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  #previewFrame .frame-badge {
+    position: absolute;
+    top: -22px;
+    right: 0;
+    font-size: 10px;
+    color: #fff;
+    background: #0d99ff;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  .element { position: absolute; cursor: move; user-select: none; }
+  .element.selected { outline: 2px solid #0d99ff; }
+
+  .remote-cursor {
+    position: absolute;
+    pointer-events: none;
+    z-index: 9999;
+    transition: transform 0.08s linear;
+    transform-origin: top left;
+  }
+  .remote-cursor svg { display: block; }
+  .remote-cursor .label {
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: white;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  #status {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    font-size: 12px;
+    color: #666;
+    background: rgba(255,255,255,0.85);
+    padding: 4px 8px;
+    border-radius: 3px;
+  }
+  #users { display: flex; gap: 4px; align-items: center; }
+  .user-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: white;
+    font-weight: bold;
+    position: relative;
+    overflow: visible;
+  }
+  .user-dot.me { border-color: #f39c12; }
+  .user-dot img {
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  .user-dot.admin::after {
+    content: '👑';
+    position: absolute;
+    top: -8px; right: -8px;
+    font-size: 12px;
+  }
+
+  .hint {
+    font-size: 11px;
+    color: #888;
+    padding: 6px 12px;
+    background: #1f1f1f;
+    border-bottom: 1px solid #333;
+  }
+  .hint code {
+    background: #333;
+    padding: 1px 4px;
+    border-radius: 2px;
+    color: #6cc;
+  }
+
+  /* ===== 管理者パネル ===== */
+  #adminBtn {
+    background: #d35400 !important;
+    border-color: #d35400 !important;
+    color: white !important;
+    font-weight: 600;
+  }
+  #adminPanel {
+    position: fixed;
+    top: 60px; right: 20px;
+    width: 340px;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    z-index: 50000;
+    display: none;
+  }
+  #adminPanel.show { display: block; }
+  #adminPanel .ap-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid #444;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+  }
+  #adminPanel .ap-head button {
+    background: transparent;
+    border: none;
+    color: #999;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  #adminPanel .ap-body { padding: 12px 16px; max-height: 400px; overflow-y: auto; }
+  .user-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    background: #333;
+  }
+  .user-row img, .user-row .ph {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .user-row .ph {
+    background: #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+  }
+  .user-row .uinfo { flex: 1; min-width: 0; }
+  .user-row .uname {
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .user-row .uemail {
+    font-size: 11px;
+    color: #999;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .user-row .ubtn {
+    background: #c0392b;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .user-row .ubtn:hover { background: #e74c3c; }
+  .user-row .ubtn.unban { background: #27ae60; }
+  .user-row .ubtn.unban:hover { background: #2ecc71; }
+  .user-row.banned { opacity: 0.7; }
+  .user-row .badge-ban {
+    background: #c0392b;
+    color: white;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .user-row .badge-admin {
+    background: #d35400;
+    color: white;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  /* ===== BAN画面 ===== */
+  #banScreen {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    color: #fff;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+    text-align: center;
+    font-family: monospace;
+  }
+  #banScreen.show { display: flex; }
+  #banScreen .msg { font-size: 14px; color: #666; }
+</style>
+</head>
+<body>
+
+<!-- ===== ログイン画面 ===== -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h1>🎨 FigmaDG CollabApp</h1>
+    <p>続けるには Google アカウントでログインしてください</p>
+    <button class="g-btn" id="googleLogin">
+      <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.5 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2c-.4.4 6.6-4.8 6.6-14.8 0-1.3-.1-2.3-.4-3.5z"/></svg>
+      Google でログイン
+    </button>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<!-- ===== BAN画面 ===== -->
+<div id="banScreen">
+  <div>
+    <h1 style="font-size:48px;margin-bottom:16px;">🚫</h1>
+    <div class="msg">アクセスが拒否されました</div>
+  </div>
+</div>
+
+<!-- ===== メインUI ===== -->
+<div id="toolbar">
+  <strong>🎨 FigmaDG</strong>
+  <input id="roomInput" placeholder="部屋ID" style="width:120px">
+  <button id="joinBtn">参加</button>
+  <span style="border-left:1px solid #555; height:20px; margin:0 8px"></span>
+  <button data-mode="select" class="mode active">選択</button>
+  <button data-mode="text" class="mode">テキスト</button>
+  <button data-mode="rect" class="mode">四角形</button>
+  <button data-mode="circle" class="mode">円</button>
+  <button id="runBtn" title="プレビュー再実行">▶ 実行</button>
+  <button id="clearBtn">全消去</button>
+  <span style="border-left:1px solid #555; height:20px; margin:0 8px"></span>
+  <button id="adminBtn" style="display:none">👑 管理</button>
+  <div id="users"></div>
+  <button id="logoutBtn" style="margin-left:auto">ログアウト</button>
+</div>
+
+<div id="main">
+  <div id="canvas" class="mode-select">
+    <div id="previewFrame">
+      <div class="frame-label">📄 ライブプレビュー</div>
+      <div class="frame-badge" id="runBadge">JS実行中</div>
+      <iframe id="preview" sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe>
+    </div>
+    <div id="status">未接続</div>
+  </div>
+  <div id="codePanel">
+    <div class="code-tabs">
+      <button data-tab="html" class="active">HTML</button>
+      <button data-tab="css">CSS</button>
+      <button data-tab="js">JS</button>
+    </div>
+    <div class="code-editor active" data-editor="html">
+      <div class="hint">HTMLを書けます。<code>&lt;button id="btn"&gt;</code> など</div>
+      <textarea id="htmlCode" spellcheck="false"></textarea>
+    </div>
+    <div class="code-editor" data-editor="css">
+      <div class="hint">CSSでスタイルを設定</div>
+      <textarea id="cssCode" spellcheck="false"></textarea>
+    </div>
+    <div class="code-editor" data-editor="js">
+      <div class="hint">JavaScriptで動作を設定</div>
+      <textarea id="jsCode" spellcheck="false"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 管理者パネル ===== -->
+<div id="adminPanel">
+  <div class="ap-head">
+    <span>👑 ユーザー管理</span>
+    <button id="apClose">×</button>
+  </div>
+  <div class="ap-body" id="apBody">読み込み中...</div>
+</div>
+
+<!-- ===== Firebase SDK ===== -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, onDisconnect, remove, push, update, get, child }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+// ============ Firebase 設定（あなたのプロジェクト） ============
+const firebaseConfig = {
+  apiKey: "AIzaSyB4CadLlM07WBgm7JHcDMqRxvhA2iKWOp8",
+  authDomain: "figmadg-8575c.firebaseapp.com",
+  databaseURL: "https://figmadg-8575c-default-rtdb.firebaseio.com",
+  projectId: "figmadg-8575c",
+  storageBucket: "figmadg-8575c.firebasestorage.app",
+  messagingSenderId: "194855566776",
+  appId: "1:194855566776:web:a9ef3c1d3a1f19624a234d"
+};
+
+// ============ 管理者メールアドレス ============
+const ADMIN_EMAILS = [
+  "katou.noel114514@gmail.com",
+  "18107@v.nakijin.ed.jp"
+];
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
+
+// ============ グローバル状態 ============
+let currentUser = null;
+let isAdmin = false;
+let roomId = null;
+let mode = 'select';
+let elements = {};
+let elementRefs = {};
+let myCursorRef = null;
+let unsubscribers = [];
+let banUnsub = null;
+let usersUnsub = null;
+let selectedId = null;
+let isDragging = false;
+let dragOffset = { x: 0, y: 0 };
+let currentDragEl = null;
+let currentHTML = '', currentCSS = '', currentJS = '';
+let bannedUsers = {};
+let allUsers = {};
+let isBanned = false;
+
+const canvas = document.getElementById('canvas');
+const statusEl = document.getElementById('status');
+const usersEl = document.getElementById('users');
+const preview = document.getElementById('preview');
+const htmlCode = document.getElementById('htmlCode');
+const cssCode = document.getElementById('cssCode');
+const jsCode = document.getElementById('jsCode');
+const runBadge = document.getElementById('runBadge');
+const loginScreen = document.getElementById('loginScreen');
+const banScreen = document.getElementById('banScreen');
+const adminBtn = document.getElementById('adminBtn');
+const adminPanel = document.getElementById('adminPanel');
+const apBody = document.getElementById('apBody');
+
+// ============ UIDから色を生成 ============
+function colorForUid(uid) {
+  const colors = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e','#e91e63','#00bcd4'];
+  let h = 0;
+  for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) >>> 0;
+  return colors[h % colors.length];
+}
+
+// ============ ログイン処理 ============
+document.getElementById('googleLogin').addEventListener('click', async () => {
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (e) {
+    errEl.textContent = 'ログイン失敗: ' + e.message;
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  if (myCursorRef) { try { await remove(myCursorRef); } catch(e){} }
+  await signOut(auth);
+  location.reload();
+});
+
+// ============ BAN画面を表示 ============
+function showBanScreen() {
+  if (isBanned) return;
+  isBanned = true;
+  banScreen.classList.add('show');
+  document.getElementById('toolbar').style.display = 'none';
+  document.getElementById('main').style.display = 'none';
+  adminPanel.classList.remove('show');
+
+  try { preview.srcdoc = ''; } catch(e){}
+
+  // 通知メッセージ表示
+  setTimeout(() => {
+    try {
+      window.history.replaceState(null, '', 'about:blank');
+      document.body.innerHTML = '<div style="position:fixed;inset:0;background:#000"></div>';
+      try { location.replace('about:blank'); } catch(e) {}
+    } catch (e) {}
+  }, 1800);
+}
+
+// ============ 認証状態監視 ============
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    currentUser = null;
+    isAdmin = false;
+    loginScreen.classList.remove('hidden');
+    unsubscribers.forEach(fn => fn()); unsubscribers = [];
+    if (banUnsub) { banUnsub(); banUnsub = null; }
+    if (usersUnsub) { usersUnsub(); usersUnsub = null; }
+    return;
+  }
+
+  currentUser = user;
+  loginScreen.classList.add('hidden');
+
+  // === 管理者判定 ===
+  isAdmin = ADMIN_EMAILS.includes(user.email);
+  try {
+    const snap = await get(child(ref(db), `admins/${user.uid}`));
+    if (snap.exists()) isAdmin = true;
+  } catch (e) { console.warn('admin check failed', e); }
+
+  // === ユーザー情報をDBに登録 ===
+  try {
+    await set(ref(db, `users/${user.uid}`), {
+      email: user.email,
+      name: user.displayName || user.email.split('@')[0],
+      photo: user.photoURL || '',
+      lastSeen: Date.now()
+    });
+  } catch (e) { console.warn('user register failed', e); }
+
+  // === BANチェック（リアルタイム）===
+  if (banUnsub) banUnsub();
+  banUnsub = onValue(ref(db, 'banned'), (snap) => {
+    bannedUsers = snap.val() || {};
+    if (bannedUsers[user.uid]) {
+      console.warn('あなたはBANされています');
+      showBanScreen();
+    }
+  });
+
+  // === 管理者ボタン表示 ===
+  adminBtn.style.display = isAdmin ? '' : 'none';
+
+  // === 部屋に参加 ===
+  const initialRoom = document.getElementById('roomInput').value.trim()
+    || 'room-' + Math.random().toString(36).slice(2, 6);
+  document.getElementById('roomInput').value = initialRoom;
+  joinRoom(initialRoom);
+});
+
+// ============ 部屋参加 ============
+function joinRoom(id) {
+  unsubscribers.forEach(fn => fn());
+  unsubscribers = [];
+  canvas.querySelectorAll('.element, .remote-cursor').forEach(el => el.remove());
+  elements = {}; elementRefs = {};
+  usersEl.innerHTML = '';
+
+  roomId = id;
+  statusEl.textContent = `部屋: ${roomId} (${currentUser.displayName || currentUser.email})`;
+
+  // --- カーソル ---
+  const cursorsRef = ref(db, `rooms/${roomId}/cursors`);
+  myCursorRef = ref(db, `rooms/${roomId}/cursors/${currentUser.uid}`);
+  onDisconnect(myCursorRef).remove();
+
+  unsubscribers.push(onValue(cursorsRef, snap => {
+    const data = snap.val() || {};
+    canvas.querySelectorAll('.remote-cursor').forEach(el => el.remove());
+    renderUsers(data);
+
+    Object.entries(data).forEach(([uid, cur]) => {
+      if (uid === currentUser.uid) return;
+      const el = document.createElement('div');
+      el.className = 'remote-cursor';
+      el.dataset.uid = uid;
+      el.style.transform = `translate(${cur.x}px, ${cur.y}px)`;
+      el.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 20 20">
+          <path d="M2 2 L2 16 L6 12 L9 18 L12 17 L9 11 L15 11 Z"
+                fill="${cur.color}" stroke="white" stroke-width="1"/>
+        </svg>
+        <div class="label" style="background:${cur.color}">${cur.name}</div>
+      `;
+      canvas.appendChild(el);
+    });
+  }));
+
+  // --- 要素 ---
+  unsubscribers.push(onValue(ref(db, `rooms/${roomId}/elements`), snap => {
+    const data = snap.val() || {};
+    Object.keys(elementRefs).forEach(eid => {
+      if (!data[eid]) {
+        elementRefs[eid].remove();
+        delete elementRefs[eid];
+        delete elements[eid];
+      }
+    });
+    Object.entries(data).forEach(([eid, el]) => {
+      elements[eid] = el;
+      if (!elementRefs[eid]) {
+        elementRefs[eid] = createElementDOM(eid, el);
+        canvas.appendChild(elementRefs[eid]);
+      } else {
+        updateElementDOM(eid, el);
+      }
+    });
+  }));
+
+  // --- コード ---
+  unsubscribers.push(onValue(ref(db, `rooms/${roomId}/code/html`), snap => {
+    const v = snap.val() || '';
+    currentHTML = v;
+    if (document.activeElement !== htmlCode) htmlCode.value = v;
+    updatePreview();
+  }));
+  unsubscribers.push(onValue(ref(db, `rooms/${roomId}/code/css`), snap => {
+    const v = snap.val() || '';
+    currentCSS = v;
+    if (document.activeElement !== cssCode) cssCode.value = v;
+    updatePreview();
+  }));
+  unsubscribers.push(onValue(ref(db, `rooms/${roomId}/code/js`), snap => {
+    const v = snap.val() || '';
+    currentJS = v;
+    if (document.activeElement !== jsCode) jsCode.value = v;
+    updatePreview();
+  }));
+
+  // --- 管理者: 全ユーザー監視 ---
+  if (isAdmin) {
+    if (usersUnsub) usersUnsub();
+    usersUnsub = onValue(ref(db, 'users'), snap => {
+      allUsers = snap.val() || {};
+      if (adminPanel.classList.contains('show')) renderAdminPanel();
+    });
+  }
+}
+
+// ============ ユーザーアバター表示 ============
+function renderUsers(cursorsData) {
+  usersEl.innerHTML = '';
+  const seen = new Set();
+  Object.entries(cursorsData).forEach(([uid, cur]) => {
+    if (seen.has(uid)) return;
+    seen.add(uid);
+
+    const info = allUsers[uid] || {};
+    const dot = document.createElement('div');
+    dot.className = 'user-dot';
+    if (uid === currentUser.uid) dot.classList.add('me');
+    if (ADMIN_EMAILS.includes(info.email) || (info.email && allUsers[uid]?.email && ADMIN_EMAILS.includes(allUsers[uid].email))) {
+      dot.classList.add('admin');
+    }
+
+    if (info.photo) {
+      dot.innerHTML = `<img src="${info.photo}" alt="">`;
+    } else {
+      dot.style.background = cur.color;
+      dot.textContent = (cur.name || '?').slice(-2);
+    }
+    dot.title = `${cur.name}${isAdminEmail(info.email) ? ' 👑' : ''}`;
+    usersEl.appendChild(dot);
+  });
+}
+
+function isAdminEmail(email) {
+  return email && ADMIN_EMAILS.includes(email);
+}
+
+// ============ 要素DOM ============
+function createElementDOM(id, el) {
+  const div = document.createElement('div');
+  div.className = 'element';
+  div.dataset.id = id;
+  div.style.left = el.x + 'px';
+  div.style.top = el.y + 'px';
+  if (el.type === 'text') {
+    div.textContent = el.content || '';
+    div.style.color = el.color || '#000';
+    div.style.fontSize = '16px';
+  } else if (el.type === 'rect') {
+    div.style.width = '100px';
+    div.style.height = '60px';
+    div.style.background = el.color || '#0d99ff';
+  } else if (el.type === 'circle') {
+    div.style.width = '80px';
+    div.style.height = '80px';
+    div.style.borderRadius = '50%';
+    div.style.background = el.color || '#0d99ff';
+  }
+  div.addEventListener('mousedown', onElementMouseDown);
+  return div;
+}
+
+function updateElementDOM(id, el) {
+  const dom = elementRefs[id];
+  if (!dom) return;
+  dom.style.left = el.x + 'px';
+  dom.style.top = el.y + 'px';
+  if (el.type === 'text' && dom.textContent !== el.content) {
+    dom.textContent = el.content || '';
+  }
+}
+
+// ============ ドラッグ処理 ============
+function onElementMouseDown(e) {
+  if (mode !== 'select' && mode !== 'text') return;
+  e.stopPropagation();
+  const id = e.currentTarget.dataset.id;
+  const el = elements[id];
+  if (!el) return;
+
+  selectedId = id;
+  Object.values(elementRefs).forEach(d => d.classList.remove('selected'));
+  elementRefs[id].classList.add('selected');
+
+  isDragging = true;
+  currentDragEl = id;
+  const rect = canvas.getBoundingClientRect();
+  dragOffset.x = (e.clientX - rect.left) - el.x;
+  dragOffset.y = (e.clientY - rect.top) - el.y;
+}
+
+canvas.addEventListener('mousemove', e => {
+  if (!currentUser) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  if (myCursorRef) {
+    const now = Date.now();
+    if (!window._lastCursorUpdate || now - window._lastCursorUpdate > 50) {
+      window._lastCursorUpdate = now;
+      set(myCursorRef, {
+        x, y,
+        name: currentUser.displayName || currentUser.email.split('@')[0],
+        color: colorForUid(currentUser.uid),
+        timestamp: now
+      }).catch(()=>{});
+    }
+  }
+
+  if (isDragging && currentDragEl) {
+    const nx = x - dragOffset.x;
+    const ny = y - dragOffset.y;
+    elementRefs[currentDragEl].style.left = nx + 'px';
+    elementRefs[currentDragEl].style.top = ny + 'px';
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  if (isDragging && currentDragEl) {
+    const dom = elementRefs[currentDragEl];
+    update(ref(db, `rooms/${roomId}/elements/${currentDragEl}`), {
+      x: parseInt(dom.style.left),
+      y: parseInt(dom.style.top)
+    }).catch(()=>{});
+  }
+  isDragging = false;
+  currentDragEl = null;
+});
+
+// ============ キャンバスクリックで新規作成 ============
+canvas.addEventListener('click', async e => {
+  if (e.target !== canvas && e.target.id !== 'canvas') {
+    if (!e.target.classList.contains('element') && e.target.id !== 'canvas') return;
+  }
+  if (mode === 'select') return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  const newId = push(ref(db, `rooms/${roomId}/elements`)).key;
+  let payload;
+  if (mode === 'text') {
+    const text = prompt('テキストを入力:', 'Hello');
+    if (!text) return;
+    payload = { type: 'text', x, y, content: text, color: '#000', author: currentUser.displayName || currentUser.email };
+  } else if (mode === 'rect') {
+    payload = { type: 'rect', x, y, color: colorForUid(currentUser.uid), author: currentUser.displayName || currentUser.email };
+  } else if (mode === 'circle') {
+    payload = { type: 'circle', x, y, color: colorForUid(currentUser.uid), author: currentUser.displayName || currentUser.email };
+  }
+  await set(ref(db, `rooms/${roomId}/elements/${newId}`), payload);
+});
+
+// ============ ツールバー操作 ============
+document.querySelectorAll('.mode').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    canvas.className = 'mode-' + (mode === 'rect' || mode === 'circle' ? 'select' : mode);
+  });
+});
+
+document.getElementById('joinBtn').addEventListener('click', () => {
+  const id = document.getElementById('roomInput').value.trim() || 'default';
+  joinRoom(id);
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!roomId) return;
+  if (!confirm('全ての要素を削除しますか？')) return;
+  remove(ref(db, `rooms/${roomId}/elements`));
+});
+
+document.getElementById('runBtn').addEventListener('click', () => updatePreview(true));
+
+// ============ コードタブ ============
+document.querySelectorAll('.code-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.code-tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.code-editor').forEach(e => e.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector(`[data-editor="${btn.dataset.tab}"]`).classList.add('active');
+  });
+});
+
+// ============ デバウンス ============
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+const pushHTML = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/html`), v); }, 500);
+const pushCSS  = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/css`), v); }, 500);
+const pushJS   = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/js`), v); }, 500);
+
+htmlCode.addEventListener('input', () => { currentHTML = htmlCode.value; pushHTML(currentHTML); updatePreview(); });
+cssCode.addEventListener('input',  () => { currentCSS  = cssCode.value;  pushCSS(currentCSS);  updatePreview(); });
+jsCode.addEventListener('input',   () => { currentJS   = jsCode.value;   pushJS(currentJS);   updatePreview(); });
+
+// ============ プレビュー更新 ============
+let previewTimer = null;
+let lastPreviewKey = '';
+
+function updatePreview(force = false) {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    const key = currentHTML + '||' + currentCSS + '||' + currentJS;
+    if (!force && key === lastPreviewKey) return;
+    lastPreviewKey = key;
+
+    const bridge = `
+      <script>
+        (function(){
+          const send = (type, msg) => {
+            try { parent.postMessage({ __preview: true, type, msg: String(msg) }, '*'); } catch(e){}
+          };
+          ['log','warn','error','info'].forEach(k => {
+            const orig = console[k];
+            console[k] = (...args) => {
+              try { orig.apply(console, args); } catch(e){}
+              send(k, args.map(a => {
+                try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
+                catch(e){ return '[object]'; }
+              }).join(' '));
+            };
+          });
+          window.addEventListener('error', e => send('error', e.message + ' @' + e.lineno));
+        })();
+      <\/script>
+    `;
+
+    const wrappedJS = `
+      try {
+        ${currentJS}
+      } catch (err) {
+        console.error('JSエラー:', err.message);
+      }
+    `;
+
+    const doc = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+${bridge}
+<style>
+  body { margin:0; font-family: -apple-system, sans-serif; padding: 12px; background: #fff; color: #222; }
+  ${currentCSS}
+</style>
+</head>
+<body>
+${currentHTML}
+<script>
+  (function(){
+    ${wrappedJS}
+  })();
+<\/script>
+</body></html>`;
+
+    preview.srcdoc = doc;
+
+    runBadge.textContent = '▶ 実行 ' + new Date().toLocaleTimeString();
+    runBadge.style.background = '#27ae60';
+    setTimeout(() => { runBadge.style.background = '#0d99ff'; runBadge.textContent = 'JS実行中'; }, 800);
+  }, 350);
+}
+
+window.addEventListener('message', e => {
+  if (e.data && e.data.__preview) {
+    console.log(`[preview:${e.data.type}]`, e.data.msg);
+  }
+});
+
+// ============ 管理者パネル ============
+adminBtn.addEventListener('click', () => {
+  adminPanel.classList.toggle('show');
+  if (adminPanel.classList.contains('show')) {
+    // 最新のユーザー一覧を取得して表示
+    get(ref(db, 'users')).then(snap => {
+      allUsers = snap.val() || {};
+      renderAdminPanel();
+    });
+  }
+});
+
+document.getElementById('apClose').addEventListener('click', () => {
+  adminPanel.classList.remove('show');
+});
+
+function renderAdminPanel() {
+  if (!isAdmin) {
+    apBody.innerHTML = '<div style="color:#e74c3c;font-size:13px;">管理者権限がありません</div>';
+    return;
+  }
+  const users = Object.entries(allUsers);
+  if (users.length === 0) {
+    apBody.innerHTML = '<div style="color:#999;font-size:13px;">ユーザーがいません</div>';
+    return;
+  }
+
+  // 最終ログイン順でソート
+  users.sort((a, b) => (b[1].lastSeen || 0) - (a[1].lastSeen || 0));
+
+  apBody.innerHTML = '';
+  users.forEach(([uid, u]) => {
+    const isBanned = !!bannedUsers[uid];
+    const isSelf = uid === currentUser.uid;
+    const isAdminUser = isAdminEmail(u.email) || (uid === '48IOjYhn3VZNPUKyPE5LA85J0o93') || (uid === 'dXz1d6jdMWMB7l5pQGCpEYkukZi2');
+
+    const row = document.createElement('div');
+    row.className = 'user-row' + (isBanned ? ' banned' : '');
+
+    const avatar = u.photo
+      ? `<img src="${u.photo}" alt="">`
+      : `<div class="ph">${(u.name || '?').slice(0, 1).toUpperCase()}</div>`;
+
+    const badges = [];
+    if (isAdminUser) badges.push('<span class="badge-admin">👑 管理者</span>');
+    if (isBanned) badges.push('<span class="badge-ban">BAN</span>');
+
+    row.innerHTML = `
+      ${avatar}
+      <div class="uinfo">
+        <div class="uname">${escapeHtml(u.name || '(no name)')} ${badges.join(' ')}</div>
+        <div class="uemail">${escapeHtml(u.email || '')}</div>
+      </div>
+    `;
+
+    // 管理者はBAN不可（自分も不可）
+    if (!isAdminUser && !isSelf) {
+      const btn = document.createElement('button');
+      btn.className = 'ubtn' + (isBanned ? ' unban' : '');
+      btn.textContent = isBanned ? '解除' : 'BAN';
+      btn.addEventListener('click', async () => {
+        if (isBanned) {
+          if (!confirm(`${u.email} のBANを解除しますか？`)) return;
+          await remove(ref(db, `banned/${uid}`));
+        } else {
+          if (!confirm(`${u.email} をBANしますか？\n\n対象ユーザーの画面は about:blank になります。`)) return;
+          await set(ref(db, `banned/${uid}`), {
+            email: u.email || '',
+            bannedAt: Date.now(),
+            bannedBy: currentUser.email
+          });
+        }
+      });
+      row.appendChild(btn);
+    }
+
+    apBody.appendChild(row);
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+// ============ 初期コード ============
+const INITIAL_HTML = `<h1>Hello World 👋</h1>
+<p>右のパネルで HTML / CSS / JS を編集できます。</p>
+<button id="btn">クリックしてね</button>
+<p id="count">クリック数: 0</p>`;
+
+const INITIAL_CSS = `h1 { color: #0d99ff; margin-top: 0; }
+button {
+  background: #0d99ff; color: white; border: none;
+  padding: 8px 16px; border-radius: 4px; cursor: pointer;
+  font-size: 14px;
+}
+button:hover { background: #0b7fd9; }
+button:active { transform: scale(0.96); }`;
+
+const INITIAL_JS = `let count = 0;
+const btn = document.getElementById('btn');
+const counter = document.getElementById('count');
+
+btn.addEventListener('click', () => {
+  count++;
+  counter.textContent = 'クリック数: ' + count;
+  console.log('クリックされました:', count);
+});
+
+console.log('プレビュー初期化完了');`;
+
+htmlCode.value = INITIAL_HTML;
+cssCode.value = INITIAL_CSS;
+jsCode.value = INITIAL_JS;
+currentHTML = INITIAL_HTML;
+currentCSS = INITIAL_CSS;
+currentJS = INITIAL_JS;
+
+// ============ 離脱時にカーソル削除 ============
+window.addEventListener('beforeunload', () => {
+  if (myCursorRef) { try { remove(myCursorRef); } catch(e){} }
+});
+
+// ============ 初期メッセージ ============
+console.log('%c🎨 FigmaDG CollabApp', 'color:#0d99ff;font-size:20px;font-weight:bold');
+console.log('ログイン後、部屋IDを共有して他のユーザーとコラボできます。');
+</script>
+</body>
+</html>
