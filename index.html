@@ -9,14 +9,12 @@
   body {
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
     height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: #1e1e1e;
-    color: #ddd;
+    display: flex; flex-direction: column;
+    background: #1e1e1e; color: #ddd;
     overflow: hidden;
   }
 
-  /* ===== ログイン画面 ===== */
+  /* ===== ログイン ===== */
   #loginScreen {
     position: fixed; inset: 0;
     background: linear-gradient(135deg, #1e1e1e, #2c2c3c);
@@ -62,15 +60,13 @@
     flex: 1; position: relative;
     background: #f7f7f9;
     overflow: hidden;
-    cursor: default;
-    background-image:
-      radial-gradient(circle, #ddd 1px, transparent 1px);
+    background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
     background-size: 24px 24px;
   }
   #canvas.panning { cursor: grabbing; }
   #canvas.panning * { cursor: grabbing !important; }
 
-  /* ===== 付箋・図形 ===== */
+  /* ===== 要素共通 ===== */
   .element {
     position: absolute;
     user-select: none;
@@ -85,24 +81,26 @@
     position: absolute; width: 10px; height: 10px;
     background: white; border: 2px solid #0d99ff;
     border-radius: 50%; display: none;
+    z-index: 5;
   }
   .element.selected .resize-handle { display: block; }
   .resize-handle.br { right: -5px; bottom: -5px; cursor: se-resize; }
   .resize-handle.bl { left: -5px; bottom: -5px; cursor: sw-resize; }
   .resize-handle.tr { right: -5px; top: -5px; cursor: ne-resize; }
   .resize-handle.tl { left: -5px; top: -5px; cursor: nw-resize; }
+
   .element .delete-btn {
     position: absolute; top: -12px; right: -12px;
     width: 22px; height: 22px; border-radius: 50%;
     background: #c0392b; color: white; border: 2px solid white;
     font-size: 12px; line-height: 1; cursor: pointer;
     display: none; align-items: center; justify-content: center;
-    font-weight: bold;
+    font-weight: bold; z-index: 6;
   }
   .element.selected .delete-btn { display: flex; }
   .element .delete-btn:hover { background: #e74c3c; }
 
-  /* 付箋 */
+  /* ===== 要素タイプ ===== */
   .el-sticky {
     width: 180px; height: 180px;
     padding: 12px; border-radius: 3px;
@@ -111,19 +109,8 @@
     overflow: hidden; word-wrap: break-word;
     outline: none;
   }
-  .el-sticky[contenteditable="true"]:focus {
-    box-shadow: 0 0 0 3px #0d99ff, 2px 2px 6px rgba(0,0,0,0.15);
-  }
-
-  /* 図形 */
-  .el-rect {
-    width: 160px; height: 100px;
-    border-radius: 6px;
-  }
-  .el-circle {
-    width: 120px; height: 120px;
-    border-radius: 50%;
-  }
+  .el-rect { width: 160px; height: 100px; border-radius: 6px; }
+  .el-circle { width: 120px; height: 120px; border-radius: 50%; }
   .el-triangle {
     width: 0; height: 0;
     border-left: 70px solid transparent;
@@ -133,29 +120,23 @@
   }
   .el-arrow {
     width: 180px; height: 6px;
-    background: #0d99ff;
-    border-radius: 3px;
+    background: #0d99ff; border-radius: 3px;
   }
   .el-arrow::after {
     content: ''; position: absolute; right: -2px; top: 50%;
     transform: translateY(-50%);
     border: 10px solid transparent;
-    border-left-color: #0d99ff;
+    border-left-color: inherit;
   }
-
-  /* テキスト */
   .el-text {
-    padding: 4px 6px; font-size: 18px;
+    padding: 4px 6px;
     color: #222; outline: none;
     min-width: 40px;
     border-radius: 4px;
+    font-size: 18px;
+    line-height: 1.3;
+    white-space: pre-wrap;
   }
-  .el-text[contenteditable="true"]:focus {
-    background: rgba(13,153,255,0.08);
-    box-shadow: 0 0 0 2px #0d99ff;
-  }
-
-  /* コメント（吹き出し） */
   .el-comment {
     width: 200px;
     background: #fff;
@@ -172,16 +153,8 @@
     border: 8px solid transparent;
     border-top-color: #f39c12;
   }
-
-  /* 画像 */
-  .el-image {
-    max-width: 400px;
-    border-radius: 6px;
-    box-shadow: 2px 4px 10px rgba(0,0,0,0.15);
-  }
   .el-image img { display: block; max-width: 100%; border-radius: 6px; }
-
-  /* スタンプ */
+  .el-image { max-width: 600px; }
   .el-stamp {
     font-size: 60px; line-height: 1;
     filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2));
@@ -200,7 +173,225 @@
     font-size: 11px; color: white; white-space: nowrap; font-weight: 500;
   }
 
-  /* ===== ステータス ===== */
+  /* ===== カーソルチャット吹き出し ===== */
+  .cursor-bubble {
+    position: absolute;
+    pointer-events: auto;
+    z-index: 9998;
+    transform-origin: top left;
+    transition: transform 0.08s linear;
+  }
+  .cursor-bubble .bubble {
+    margin-left: 22px;
+    margin-top: 10px;
+    background: white;
+    color: #222;
+    border-radius: 16px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    max-width: 240px;
+    word-wrap: break-word;
+    position: relative;
+    animation: popIn 0.2s ease-out;
+  }
+  .cursor-bubble .bubble::before {
+    content: '';
+    position: absolute; left: -6px; top: 12px;
+    border: 6px solid transparent;
+    border-right-color: white;
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.8) translateY(-4px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  /* ===== 自分の入力吹き出し ===== */
+  #myBubble {
+    position: fixed;
+    z-index: 10001;
+    display: none;
+    transform-origin: top left;
+    pointer-events: auto;
+  }
+  #myBubble.show { display: block; }
+  #myBubble .bubble-wrap {
+    margin-left: 22px;
+    margin-top: 10px;
+    background: #0d99ff;
+    border-radius: 16px;
+    padding: 6px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    display: flex; align-items: center; gap: 6px;
+    position: relative;
+    min-width: 220px;
+  }
+  #myBubble .bubble-wrap::before {
+    content: '';
+    position: absolute; left: -6px; top: 12px;
+    border: 6px solid transparent;
+    border-right-color: #0d99ff;
+  }
+  #myBubble input {
+    background: transparent; border: none;
+    color: white; font-size: 13px; font-weight: 500;
+    outline: none; flex: 1; padding: 4px 8px;
+    min-width: 100px;
+  }
+  #myBubble input::placeholder { color: rgba(255,255,255,0.6); }
+  #myBubble button {
+    background: white; color: #0d99ff;
+    border: none; padding: 4px 10px; border-radius: 12px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  #myBubble button.close {
+    background: rgba(255,255,255,0.2); color: white;
+    padding: 4px 8px;
+  }
+
+  /* ===== プロパティパネル ===== */
+  #propPanel {
+    position: fixed;
+    bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    padding: 10px 14px;
+    display: none;
+    gap: 10px;
+    align-items: center;
+    z-index: 55000;
+    flex-wrap: wrap;
+    max-width: 90vw;
+  }
+  #propPanel.show { display: flex; }
+  #propPanel .pp-group {
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 8px;
+    border-right: 1px solid #444;
+  }
+  #propPanel .pp-group:last-child { border-right: none; }
+  #propPanel label {
+    font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  #propPanel input[type="color"] {
+    width: 32px; height: 32px; border: 2px solid #555;
+    border-radius: 6px; cursor: pointer; background: none; padding: 0;
+  }
+  #propPanel input[type="number"] {
+    width: 60px; background: #1a1a1a; color: #eee;
+    border: 1px solid #555; border-radius: 4px;
+    padding: 5px 8px; font-size: 13px;
+  }
+  #propPanel button {
+    background: #3a3a3a; color: #eee;
+    border: 1px solid #555; border-radius: 4px;
+    padding: 5px 10px; font-size: 13px; cursor: pointer;
+    min-width: 32px;
+  }
+  #propPanel button.active { background: #0d99ff; border-color: #0d99ff; color: white; }
+  #propPanel button:hover { background: #4a4a4a; }
+
+  /* ===== スラッシュメニュー ===== */
+  #slashMenu {
+    position: fixed;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    z-index: 60000;
+    min-width: 280px; max-height: 400px;
+    overflow-y: auto;
+    display: none;
+  }
+  #slashMenu.show { display: block; }
+  .slash-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; cursor: pointer;
+    border-bottom: 1px solid #333;
+    transition: background 0.1s;
+  }
+  .slash-item:last-child { border-bottom: none; }
+  .slash-item:hover, .slash-item.active { background: #0d99ff; }
+  .slash-item:hover .si-name, .slash-item.active .si-name,
+  .slash-item:hover .si-desc, .slash-item.active .si-desc { color: white; }
+  .slash-icon {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: #3a3a3a; border-radius: 6px;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .slash-item:hover .slash-icon, .slash-item.active .slash-icon {
+    background: rgba(255,255,255,0.2);
+  }
+  .slash-info { flex: 1; min-width: 0; }
+  .si-name { font-size: 13px; font-weight: 600; color: #eee; }
+  .si-desc { font-size: 11px; color: #999; margin-top: 2px; }
+  .si-cmd {
+    font-size: 11px; color: #0d99ff;
+    font-family: monospace;
+    background: #1a1a1a;
+    padding: 2px 6px; border-radius: 3px;
+  }
+
+  /* ===== チャット履歴パネル ===== */
+  #chatPanel {
+    position: fixed;
+    right: 20px; bottom: 20px;
+    width: 320px; height: 420px;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    display: none; flex-direction: column;
+    z-index: 55000;
+  }
+  #chatPanel.show { display: flex; }
+  .chat-head {
+    padding: 12px 16px; border-bottom: 1px solid #444;
+    display: flex; justify-content: space-between;
+    align-items: center; font-weight: 600; font-size: 14px;
+  }
+  .chat-head button {
+    background: transparent; border: none;
+    color: #999; font-size: 20px; cursor: pointer;
+  }
+  #chatMessages {
+    flex: 1; overflow-y: auto; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .chat-msg {
+    padding: 6px 10px; border-radius: 8px;
+    background: #3a3a3a; max-width: 85%;
+    word-wrap: break-word;
+  }
+  .chat-msg.mine { background: #0d99ff; align-self: flex-end; }
+  .chat-msg .cm-author {
+    font-size: 10px; font-weight: 600;
+    margin-bottom: 3px; opacity: 0.8;
+  }
+  .chat-msg .cm-text { font-size: 13px; line-height: 1.4; }
+  .chat-msg .cm-time { font-size: 9px; opacity: 0.6; margin-top: 3px; }
+  .chat-input {
+    padding: 10px; border-top: 1px solid #444;
+    display: flex; gap: 6px;
+  }
+  .chat-input input {
+    flex: 1; background: #1a1a1a; color: #eee;
+    border: 1px solid #444; border-radius: 6px;
+    padding: 8px 10px; font-size: 13px; outline: none;
+  }
+  .chat-input input:focus { border-color: #0d99ff; }
+  .chat-input button {
+    background: #0d99ff; color: white; border: none;
+    padding: 8px 14px; border-radius: 6px;
+    cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+
+  /* ===== ユーザー・ステータス ===== */
   #status {
     position: absolute; bottom: 12px; left: 12px;
     font-size: 12px; color: #555;
@@ -223,164 +414,18 @@
     content: '👑'; position: absolute; top: -8px; right: -8px; font-size: 12px;
   }
 
-  /* ===== スラッシュコマンドメニュー ===== */
-  #slashMenu {
-    position: fixed;
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 8px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-    z-index: 60000;
-    min-width: 260px;
-    max-height: 380px;
-    overflow-y: auto;
-    display: none;
-  }
-  #slashMenu.show { display: block; }
-  .slash-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; cursor: pointer;
-    border-bottom: 1px solid #333;
-    transition: background 0.1s;
-  }
-  .slash-item:last-child { border-bottom: none; }
-  .slash-item:hover, .slash-item.active {
-    background: #0d99ff;
-  }
-  .slash-item:hover .si-name, .slash-item.active .si-name,
-  .slash-item:hover .si-desc, .slash-item.active .si-desc {
-    color: white;
-  }
-  .slash-icon {
-    width: 32px; height: 32px;
-    display: flex; align-items: center; justify-content: center;
-    background: #3a3a3a; border-radius: 6px;
-    font-size: 18px; flex-shrink: 0;
-  }
-  .slash-item:hover .slash-icon, .slash-item.active .slash-icon {
-    background: rgba(255,255,255,0.2);
-  }
-  .slash-info { flex: 1; min-width: 0; }
-  .si-name { font-size: 13px; font-weight: 600; color: #eee; }
-  .si-desc { font-size: 11px; color: #999; margin-top: 2px; }
-  .si-cmd {
-    font-size: 11px; color: #0d99ff;
-    font-family: monospace;
-    background: #1a1a1a;
-    padding: 2px 6px; border-radius: 3px;
-    flex-shrink: 0;
-  }
-  .slash-item:hover .si-cmd, .slash-item.active .si-cmd {
-    background: rgba(255,255,255,0.15);
-    color: white;
-  }
-
-  /* ===== チャット ===== */
-  #chatPanel {
-    position: fixed;
-    right: 20px; bottom: 20px;
-    width: 320px; height: 420px;
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 10px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    display: none;
-    flex-direction: column;
-    z-index: 55000;
-  }
-  #chatPanel.show { display: flex; }
-  .chat-head {
-    padding: 12px 16px;
-    border-bottom: 1px solid #444;
-    display: flex; justify-content: space-between; align-items: center;
-    font-weight: 600; font-size: 14px;
-  }
-  .chat-head button {
-    background: transparent; border: none;
-    color: #999; font-size: 20px; cursor: pointer;
-  }
-  #chatMessages {
-    flex: 1; overflow-y: auto;
-    padding: 10px 12px;
-    display: flex; flex-direction: column; gap: 8px;
-  }
-  .chat-msg {
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: #3a3a3a;
-    max-width: 85%;
-    word-wrap: break-word;
-  }
-  .chat-msg.mine {
-    background: #0d99ff;
-    align-self: flex-end;
-  }
-  .chat-msg .cm-author {
-    font-size: 10px; font-weight: 600;
-    margin-bottom: 3px;
-    opacity: 0.8;
-  }
-  .chat-msg.mine .cm-author { color: rgba(255,255,255,0.85); }
-  .chat-msg .cm-text { font-size: 13px; line-height: 1.4; }
-  .chat-msg .cm-time {
-    font-size: 9px; opacity: 0.6; margin-top: 3px;
-  }
-  .chat-input {
-    padding: 10px;
-    border-top: 1px solid #444;
-    display: flex; gap: 6px;
-  }
-  .chat-input input {
-    flex: 1; background: #1a1a1a; color: #eee;
-    border: 1px solid #444; border-radius: 6px;
-    padding: 8px 10px; font-size: 13px; outline: none;
-  }
-  .chat-input input:focus { border-color: #0d99ff; }
-  .chat-input button {
-    background: #0d99ff; color: white; border: none;
-    padding: 8px 14px; border-radius: 6px;
-    cursor: pointer; font-size: 13px; font-weight: 600;
-  }
-  .chat-input button:hover { background: #0b7fd9; }
-
-  /* ===== アバター・ミニマップ ===== */
-  #miniMap {
-    position: fixed;
-    right: 20px; bottom: 460px;
-    width: 200px; height: 140px;
-    background: rgba(255,255,255,0.95);
-    border: 1px solid #444;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    overflow: hidden;
-    z-index: 50000;
-    display: none;
-  }
-  #miniMap.show { display: block; }
-  #miniMap .mm-viewport {
-    position: absolute;
-    border: 2px solid #0d99ff;
-    background: rgba(13,153,255,0.1);
-    pointer-events: none;
-  }
-
-  /* ===== 管理者パネル ===== */
+  /* ===== 管理者 ===== */
   #adminBtn {
     background: #d35400 !important;
     border-color: #d35400 !important;
-    color: white !important;
-    font-weight: 600;
+    color: white !important; font-weight: 600;
   }
   #adminPanel {
-    position: fixed;
-    top: 60px; right: 20px;
-    width: 340px;
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 8px;
+    position: fixed; top: 60px; right: 20px;
+    width: 340px; background: #2a2a2a;
+    border: 1px solid #444; border-radius: 8px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-    z-index: 50000;
-    display: none;
+    z-index: 50000; display: none;
   }
   #adminPanel.show { display: block; }
   #adminPanel .ap-head {
@@ -410,8 +455,7 @@
   .user-row .uinfo { flex: 1; min-width: 0; }
   .user-row .uname {
     font-size: 13px; font-weight: 600;
-    display: flex; align-items: center;
-    gap: 4px; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
   }
   .user-row .uemail {
     font-size: 11px; color: #999;
@@ -427,14 +471,12 @@
   .user-row .ubtn.unban { background: #27ae60; }
   .user-row .ubtn.unban:hover { background: #2ecc71; }
   .user-row.banned { opacity: 0.7; }
-  .badge-ban {
-    background: #c0392b; color: white; font-size: 10px;
+  .badge-ban, .badge-admin {
+    color: white; font-size: 10px;
     padding: 1px 6px; border-radius: 3px; font-weight: 600;
   }
-  .badge-admin {
-    background: #d35400; color: white; font-size: 10px;
-    padding: 1px 6px; border-radius: 3px; font-weight: 600;
-  }
+  .badge-ban { background: #c0392b; }
+  .badge-admin { background: #d35400; }
 
   /* ===== BAN画面 ===== */
   #banScreen {
@@ -454,17 +496,27 @@
     color: white; padding: 6px 14px;
     border-radius: 20px; font-size: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.3s;
-    z-index: 100;
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.3s; z-index: 100;
   }
   #hint.show { opacity: 1; }
+
+  /* ===== ペーストヒント ===== */
+  #pasteHint {
+    position: fixed; bottom: 80px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(39,174,96,0.95);
+    color: white; padding: 8px 16px;
+    border-radius: 20px; font-size: 13px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 10002; display: none;
+    font-weight: 600;
+  }
+  #pasteHint.show { display: block; }
 </style>
 </head>
 <body>
 
-<!-- ===== ログイン画面 ===== -->
 <div id="loginScreen">
   <div class="login-box">
     <h1>🎨 FigmaDG</h1>
@@ -477,7 +529,6 @@
   </div>
 </div>
 
-<!-- ===== BAN画面 ===== -->
 <div id="banScreen">
   <div>
     <h1 style="font-size:48px;margin-bottom:16px;">🚫</h1>
@@ -485,14 +536,13 @@
   </div>
 </div>
 
-<!-- ===== ツールバー ===== -->
 <div id="toolbar">
   <strong>🎨 FigmaDG</strong>
   <input id="roomInput" placeholder="部屋ID" style="width:110px">
   <button id="joinBtn">参加</button>
   <span style="border-left:1px solid #555; height:20px; margin:0 4px"></span>
-  <button id="slashBtn" title="/ キーでメニュー">/ コマンド</button>
-  <button id="chatBtn" title="チャット (C)">💬 チャット</button>
+  <button id="slashBtn">/ コマンド</button>
+  <button id="chatBtn">💬 履歴</button>
   <button id="clearBtn">🗑 全消去</button>
   <span style="border-left:1px solid #555; height:20px; margin:0 4px"></span>
   <button id="adminBtn" style="display:none">👑 管理</button>
@@ -500,7 +550,6 @@
   <button id="logoutBtn" style="margin-left:auto">ログアウト</button>
 </div>
 
-<!-- ===== キャンバス ===== -->
 <div id="main">
   <div id="canvas">
     <div id="hint"></div>
@@ -508,23 +557,32 @@
   </div>
 </div>
 
-<!-- ===== スラッシュメニュー ===== -->
+<!-- 自分の吹き出し入力 -->
+<div id="myBubble">
+  <div class="bubble-wrap">
+    <input id="myBubbleInput" placeholder="メッセージ... (Enter送信)" maxlength="200">
+    <button id="myBubbleSend">送信</button>
+    <button class="close" id="myBubbleClose">×</button>
+  </div>
+</div>
+
+<!-- プロパティパネル -->
+<div id="propPanel"></div>
+
 <div id="slashMenu"></div>
 
-<!-- ===== チャットパネル ===== -->
 <div id="chatPanel">
   <div class="chat-head">
-    <span>💬 チャット</span>
+    <span>💬 チャット履歴</span>
     <button id="chatClose">×</button>
   </div>
   <div id="chatMessages"></div>
   <div class="chat-input">
-    <input id="chatInput" placeholder="メッセージを入力..." maxlength="500">
+    <input id="chatInput" placeholder="メッセージ..." maxlength="500">
     <button id="chatSend">送信</button>
   </div>
 </div>
 
-<!-- ===== 管理者パネル ===== -->
 <div id="adminPanel">
   <div class="ap-head">
     <span>👑 ユーザー管理</span>
@@ -533,7 +591,8 @@
   <div class="ap-body" id="apBody">読み込み中...</div>
 </div>
 
-<!-- ===== Firebase SDK ===== -->
+<div id="pasteHint">📋 画像を貼り付けました</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, onValue, set, onDisconnect, remove, push, update, get, child }
@@ -579,6 +638,7 @@ let unsubscribers = [];
 let banUnsub = null;
 let usersUnsub = null;
 let chatUnsub = null;
+let bubbleUnsub = null;
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
 let currentDragId = null;
@@ -587,7 +647,6 @@ let selectedId = null;
 let bannedUsers = {};
 let allUsers = {};
 let isBanned = false;
-let editingElement = null;
 
 const canvas = document.getElementById('canvas');
 const statusEl = document.getElementById('status');
@@ -602,27 +661,31 @@ const chatPanel = document.getElementById('chatPanel');
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const hintEl = document.getElementById('hint');
+const propPanel = document.getElementById('propPanel');
+const myBubble = document.getElementById('myBubble');
+const myBubbleInput = document.getElementById('myBubbleInput');
+const pasteHint = document.getElementById('pasteHint');
 
-// ============ スラッシュコマンド定義 ============
+// ============ 定数 ============
 const COMMANDS = [
   { id: 'sticky',   icon: '📝', name: '付箋',       cmd: '/sticky',   desc: '付箋を追加' },
-  { id: 'text',     icon: '🅰',  name: 'テキスト',    cmd: '/text',     desc: 'テキストを追加' },
-  { id: 'rect',     icon: '⬛', name: '四角形',      cmd: '/rect',     desc: '四角形を追加' },
-  { id: 'circle',   icon: '⚫', name: '円',          cmd: '/circle',   desc: '円を追加' },
-  { id: 'triangle', icon: '🔺', name: '三角形',      cmd: '/triangle', desc: '三角形を追加' },
-  { id: 'arrow',    icon: '➡', name: '矢印',        cmd: '/arrow',    desc: '矢印を追加' },
-  { id: 'comment',  icon: '💬', name: 'コメント',    cmd: '/comment',  desc: '吹き出しコメント' },
-  { id: 'stamp',    icon: '⭐', name: 'スタンプ',    cmd: '/stamp',    desc: '絵文字スタンプ' },
-  { id: 'image',    icon: '🖼', name: '画像',        cmd: '/image',    desc: '画像URLから追加' },
-  { id: 'chat',     icon: '💭', name: 'チャット',    cmd: '/chat',     desc: 'チャットを開く' },
-  { id: 'clear',    icon: '🗑', name: '全消去',      cmd: '/clear',    desc: '全要素を削除' },
+  { id: 'text',     icon: '🅰',  name: 'テキスト',    cmd: '/text',     desc: 'テキスト' },
+  { id: 'rect',     icon: '⬛', name: '四角形',      cmd: '/rect',     desc: '四角形' },
+  { id: 'circle',   icon: '⚫', name: '円',          cmd: '/circle',   desc: '円' },
+  { id: 'triangle', icon: '🔺', name: '三角形',      cmd: '/triangle', desc: '三角形' },
+  { id: 'arrow',    icon: '➡', name: '矢印',        cmd: '/arrow',    desc: '矢印' },
+  { id: 'comment',  icon: '💬', name: 'コメント',    cmd: '/comment',  desc: '吹き出し' },
+  { id: 'stamp',    icon: '⭐', name: 'スタンプ',    cmd: '/stamp',    desc: '絵文字' },
+  { id: 'image',    icon: '🖼', name: '画像URL',     cmd: '/image',    desc: 'URLから' },
+  { id: 'chat',     icon: '💭', name: 'チャット',    cmd: '/chat',     desc: 'チャット開く' },
+  { id: 'clear',    icon: '🗑', name: '全消去',      cmd: '/clear',    desc: '全要素削除' },
 ];
 
 const STICKY_COLORS = ['#fef08a','#fbcfe8','#bfdbfe','#bbf7d0','#fed7aa','#e9d5ff'];
 const SHAPE_COLORS  = ['#0d99ff','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'];
 const STAMPS        = ['⭐','❤️','👍','🎉','🔥','✨','💯','👀','🚀','🎨','💡','✅'];
 
-// ============ UIDから色 ============
+// ============ ユーティリティ ============
 function colorForUid(uid) {
   const colors = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e','#e91e63','#00bcd4'];
   let h = 0;
@@ -630,9 +693,15 @@ function colorForUid(uid) {
   return colors[h % colors.length];
 }
 function pickColor(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-
 function isAdminEmail(email) { return email && ADMIN_EMAILS.includes(email); }
-function isAdminUid(uid)     { return uid && ADMIN_UIDS.includes(uid); }
+function isAdminUid(uid) { return uid && ADMIN_UIDS.includes(uid); }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+function uid() { return 'u_' + Math.random().toString(36).slice(2, 10); }
+function newElemId() { return 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
 
 // ============ ログイン ============
 document.getElementById('googleLogin').addEventListener('click', async () => {
@@ -661,6 +730,7 @@ function showBanScreen() {
   adminPanel.classList.remove('show');
   chatPanel.classList.remove('show');
   slashMenu.classList.remove('show');
+  propPanel.classList.remove('show');
 
   setTimeout(() => {
     try {
@@ -671,7 +741,7 @@ function showBanScreen() {
   }, 1800);
 }
 
-// ============ 認証監視 ============
+// ============ 認証 ============
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     currentUser = null; isAdmin = false;
@@ -680,6 +750,7 @@ onAuthStateChanged(auth, async (user) => {
     if (banUnsub) { banUnsub(); banUnsub = null; }
     if (usersUnsub) { usersUnsub(); usersUnsub = null; }
     if (chatUnsub) { chatUnsub(); chatUnsub = null; }
+    if (bubbleUnsub) { bubbleUnsub(); bubbleUnsub = null; }
     return;
   }
 
@@ -719,7 +790,7 @@ onAuthStateChanged(auth, async (user) => {
 function joinRoom(id) {
   unsubscribers.forEach(fn => fn());
   unsubscribers = [];
-  canvas.querySelectorAll('.element, .remote-cursor').forEach(el => el.remove());
+  canvas.querySelectorAll('.element, .remote-cursor, .cursor-bubble').forEach(el => el.remove());
   elements = {}; elementRefs = {};
   usersEl.innerHTML = '';
 
@@ -752,6 +823,27 @@ function joinRoom(id) {
     });
   }));
 
+  // カーソルチャット吹き出し
+  const bubblesRef = ref(db, `rooms/${roomId}/bubbles`);
+  unsubscribers.push(onValue(bubblesRef, snap => {
+    const data = snap.val() || {};
+    canvas.querySelectorAll('.cursor-bubble').forEach(el => el.remove());
+    Object.entries(data).forEach(([uid, b]) => {
+      if (uid === currentUser.uid) return;
+      if (!b.text) return;
+      const el = document.createElement('div');
+      el.className = 'cursor-bubble';
+      el.dataset.uid = uid;
+      el.style.transform = `translate(${b.x}px, ${b.y}px)`;
+      el.innerHTML = `<div class="bubble" style="background:${b.color};color:white;border-color:${b.color}">
+        <div style="font-size:10px;opacity:0.8;margin-bottom:2px;">${escapeHtml(b.name||'')}</div>
+        ${escapeHtml(b.text)}
+      </div>`;
+      el.querySelector('.bubble').style.setProperty('--bubble-color', b.color);
+      canvas.appendChild(el);
+    });
+  }));
+
   // 要素
   unsubscribers.push(onValue(ref(db, `rooms/${roomId}/elements`), snap => {
     const data = snap.val() || {};
@@ -775,14 +867,12 @@ function joinRoom(id) {
     });
   }));
 
-  // チャット
+  // チャット履歴
   if (chatUnsub) chatUnsub();
   chatUnsub = onValue(ref(db, `rooms/${roomId}/chats`), snap => {
-    const data = snap.val() || {};
-    renderChats(data);
+    renderChats(snap.val() || {});
   });
 
-  // 管理者: ユーザー監視
   if (isAdmin) {
     if (usersUnsub) usersUnsub();
     usersUnsub = onValue(ref(db, 'users'), snap => {
@@ -792,7 +882,7 @@ function joinRoom(id) {
   }
 }
 
-// ============ 要素DOM生成 ============
+// ============ 要素DOM ============
 function createElementDOM(id, el) {
   const div = document.createElement('div');
   div.className = 'element';
@@ -801,20 +891,17 @@ function createElementDOM(id, el) {
   div.style.left = el.x + 'px';
   div.style.top = el.y + 'px';
 
-  let inner = '';
-
   switch (el.type) {
     case 'sticky':
       div.classList.add('el-sticky');
       div.style.background = el.color || pickColor(STICKY_COLORS);
       div.textContent = el.content || '';
-      div.contentEditable = 'false';
+      applyTextStyle(div, el);
       break;
     case 'text':
       div.classList.add('el-text');
       div.textContent = el.content || 'テキスト';
-      div.style.color = el.color || '#222';
-      div.contentEditable = 'false';
+      applyTextStyle(div, el);
       break;
     case 'rect':
       div.classList.add('el-rect');
@@ -835,27 +922,28 @@ function createElementDOM(id, el) {
     case 'arrow':
       div.classList.add('el-arrow');
       div.style.background = el.color || '#0d99ff';
+      div.style.color = el.color || '#0d99ff';
       break;
     case 'comment':
       div.classList.add('el-comment');
       div.textContent = el.content || 'コメント';
-      div.contentEditable = 'false';
+      applyTextStyle(div, el);
       break;
     case 'stamp':
       div.classList.add('el-stamp');
       div.textContent = el.content || '⭐';
+      if (el.fontSize) div.style.fontSize = el.fontSize + 'px';
       break;
     case 'image':
       div.classList.add('el-image');
-      inner = `<img src="${el.content}" alt="" draggable="false">`;
+      div.innerHTML = `<img src="${el.content}" alt="" draggable="false">`;
+      if (el.width) div.style.width = el.width + 'px';
       break;
     default:
       div.textContent = el.content || '';
   }
 
-  if (inner) div.innerHTML = inner;
-
-  // ハンドル類
+  // リサイズハンドル
   if (['sticky','text','comment','rect','circle','image'].includes(el.type)) {
     ['tl','tr','bl','br'].forEach(pos => {
       const h = document.createElement('div');
@@ -875,11 +963,17 @@ function createElementDOM(id, el) {
   });
   div.appendChild(del);
 
-  // マウスイベント
   div.addEventListener('mousedown', onElementMouseDown);
   div.addEventListener('dblclick', onElementDblClick);
 
   return div;
+}
+
+function applyTextStyle(dom, el) {
+  if (el.fontSize) dom.style.fontSize = el.fontSize + 'px';
+  if (el.color) dom.style.color = el.color;
+  if (el.bold) dom.style.fontWeight = 'bold';
+  if (el.italic) dom.style.fontStyle = 'italic';
 }
 
 function updateElementDOM(id, el) {
@@ -891,9 +985,24 @@ function updateElementDOM(id, el) {
   if (el.height) dom.style.height = el.height + 'px';
 
   if ((el.type === 'sticky' || el.type === 'text' || el.type === 'comment') &&
-      dom.textContent !== el.content) {
+      dom.textContent !== el.content && !dom.isContentEditable) {
     dom.textContent = el.content || '';
   }
+  if (el.color) {
+    if (el.type === 'rect' || el.type === 'circle' || el.type === 'sticky') {
+      dom.style.background = el.color;
+    } else if (el.type === 'triangle') {
+      dom.style.borderBottomColor = el.color;
+    } else if (el.type === 'arrow') {
+      dom.style.background = el.color;
+      dom.style.color = el.color;
+    } else if (el.type === 'text' || el.type === 'comment') {
+      dom.style.color = el.color;
+    }
+  }
+  if (el.fontSize) dom.style.fontSize = el.fontSize + 'px';
+  if (el.bold !== undefined) dom.style.fontWeight = el.bold ? 'bold' : 'normal';
+  if (el.italic !== undefined) dom.style.fontStyle = el.italic ? 'italic' : 'normal';
 }
 
 // ============ ドラッグ ============
@@ -912,6 +1021,7 @@ function onElementMouseDown(e) {
   selectedId = id;
   document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
   div.classList.add('selected');
+  showPropPanel(id);
 
   isDragging = true;
   currentDragId = id;
@@ -930,12 +1040,14 @@ canvas.addEventListener('mousemove', e => {
     const now = Date.now();
     if (!window._lastCursorUpdate || now - window._lastCursorUpdate > 50) {
       window._lastCursorUpdate = now;
-      set(myCursorRef, {
-        x, y,
-        name: currentUser.displayName || currentUser.email.split('@')[0],
-        color: colorForUid(currentUser.uid),
-        timestamp: now
-      }).catch(()=>{});
+      const name = currentUser.displayName || currentUser.email.split('@')[0];
+      const color = colorForUid(currentUser.uid);
+      set(myCursorRef, { x, y, name, color, timestamp: now }).catch(()=>{});
+      // 吹き出し位置も更新
+      const bubblesRef = ref(db, `rooms/${roomId}/bubbles/${currentUser.uid}`);
+      update(bubblesRef, { x, y, name, color }).catch(()=>{});
+      // 自分の吹き出し位置
+      myBubble.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
     }
   }
 
@@ -1003,8 +1115,7 @@ function startResize(e, id, pos) {
     id, pos,
     startX: e.clientX - rect.left,
     startY: e.clientY - rect.top,
-    origW: bcr.width,
-    origH: bcr.height,
+    origW: bcr.width, origH: bcr.height,
     origX: parseInt(dom.style.left),
     origY: parseInt(dom.style.top)
   };
@@ -1023,7 +1134,6 @@ function onElementDblClick(e) {
   div.contentEditable = 'true';
   div.focus();
 
-  // 全選択
   const range = document.createRange();
   range.selectNodeContents(div);
   const sel = window.getSelection();
@@ -1034,24 +1144,187 @@ function onElementDblClick(e) {
     div.contentEditable = 'false';
     div.removeEventListener('blur', finish);
     div.removeEventListener('keydown', onKey);
-    const newText = div.textContent.trim();
+    const newText = div.textContent;
     update(ref(db, `rooms/${roomId}/elements/${id}`), { content: newText }).catch(()=>{});
   };
   const onKey = (ev) => {
     if (ev.key === 'Escape') { ev.preventDefault(); div.blur(); }
-    if (ev.key === 'Enter' && !ev.shiftKey && el.type !== 'sticky') { ev.preventDefault(); div.blur(); }
+    if (ev.key === 'Enter' && !ev.shiftKey && el.type !== 'sticky') {
+      ev.preventDefault(); div.blur();
+    }
   };
   div.addEventListener('blur', finish);
   div.addEventListener('keydown', onKey);
 }
 
+// ============ プロパティパネル ============
+function showPropPanel(id) {
+  const el = elements[id];
+  if (!el) { propPanel.classList.remove('show'); return; }
+
+  propPanel.classList.add('show');
+  propPanel.innerHTML = '';
+
+  const isTextType = ['sticky','text','comment'].includes(el.type);
+  const isShapeType = ['rect','circle','triangle','arrow'].includes(el.type);
+  const isSticky = el.type === 'sticky';
+  const isStamp = el.type === 'stamp';
+
+  // --- 色 ---
+  if (isTextType || isShapeType || isSticky) {
+    const g = document.createElement('div');
+    g.className = 'pp-group';
+    g.innerHTML = `<label>色</label>`;
+    const input = document.createElement('input');
+    input.type = 'color';
+    // 付箋・図形は背景色、テキスト系は文字色
+    if (isSticky || isShapeType) {
+      input.value = rgbToHex(el.color || '#0d99ff');
+    } else {
+      input.value = rgbToHex(el.color || '#222222');
+    }
+    input.addEventListener('input', () => {
+      const target = (isSticky || isShapeType) ? 'background' : 'color';
+      update(ref(db, `rooms/${roomId}/elements/${id}`), { color: input.value });
+    });
+    g.appendChild(input);
+    propPanel.appendChild(g);
+  }
+
+  // --- 文字サイズ ---
+  if (isTextType || isStamp) {
+    const g = document.createElement('div');
+    g.className = 'pp-group';
+    g.innerHTML = `<label>サイズ</label>`;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = 8; input.max = 200;
+    input.value = el.fontSize || (isStamp ? 60 : 14);
+    input.addEventListener('input', () => {
+      update(ref(db, `rooms/${roomId}/elements/${id}`), { fontSize: parseInt(input.value) });
+    });
+    g.appendChild(input);
+    propPanel.appendChild(g);
+  }
+
+  // --- 太字・斜体 ---
+  if (isTextType) {
+    const g = document.createElement('div');
+    g.className = 'pp-group';
+
+    const boldBtn = document.createElement('button');
+    boldBtn.textContent = 'B';
+    boldBtn.style.fontWeight = 'bold';
+    if (el.bold) boldBtn.classList.add('active');
+    boldBtn.addEventListener('click', () => {
+      update(ref(db, `rooms/${roomId}/elements/${id}`), { bold: !el.bold });
+    });
+
+    const italicBtn = document.createElement('button');
+    italicBtn.textContent = 'I';
+    italicBtn.style.fontStyle = 'italic';
+    if (el.italic) italicBtn.classList.add('active');
+    italicBtn.addEventListener('click', () => {
+      update(ref(db, `rooms/${roomId}/elements/${id}`), { italic: !el.italic });
+    });
+
+    g.appendChild(boldBtn);
+    g.appendChild(italicBtn);
+    propPanel.appendChild(g);
+  }
+
+  // --- スタンプ変更 ---
+  if (isStamp) {
+    const g = document.createElement('div');
+    g.className = 'pp-group';
+    g.innerHTML = `<label>絵文字</label>`;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = el.content || '⭐';
+    input.maxLength = 4;
+    input.style.cssText = 'width:50px;background:#1a1a1a;color:#eee;border:1px solid #555;border-radius:4px;padding:5px;font-size:16px;text-align:center;';
+    input.addEventListener('change', () => {
+      update(ref(db, `rooms/${roomId}/elements/${id}`), { content: input.value || '⭐' });
+    });
+    g.appendChild(input);
+    propPanel.appendChild(g);
+  }
+
+  // --- 画像URL ---
+  if (el.type === 'image') {
+    const g = document.createElement('div');
+    g.className = 'pp-group';
+    g.innerHTML = `<label>URL</label>`;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = el.content || '';
+    input.style.cssText = 'width:200px;background:#1a1a1a;color:#eee;border:1px solid #555;border-radius:4px;padding:5px;font-size:12px;';
+    input.addEventListener('change', () => {
+      update(ref(db, `rooms/${roomId}/elements/${id}`), { content: input.value });
+    });
+    g.appendChild(input);
+    propPanel.appendChild(g);
+  }
+
+  // --- レイヤー ---
+  const gLayer = document.createElement('div');
+  gLayer.className = 'pp-group';
+  const upBtn = document.createElement('button');
+  upBtn.textContent = '⬆';
+  upBtn.title = '前面へ';
+  upBtn.addEventListener('click', () => {
+    update(ref(db, `rooms/${roomId}/elements/${id}`), { z: Date.now() });
+  });
+  const downBtn = document.createElement('button');
+  downBtn.textContent = '⬇';
+  downBtn.title = '背面へ';
+  downBtn.addEventListener('click', () => {
+    update(ref(db, `rooms/${roomId}/elements/${id}`), { z: 1 });
+  });
+  gLayer.appendChild(upBtn);
+  gLayer.appendChild(downBtn);
+  propPanel.appendChild(gLayer);
+
+  // --- 複製 ---
+  const gDup = document.createElement('div');
+  gDup.className = 'pp-group';
+  const dupBtn = document.createElement('button');
+  dupBtn.textContent = '⧉';
+  dupBtn.title = '複製';
+  dupBtn.addEventListener('click', async () => {
+    const newId = newElemId();
+    const copy = { ...el };
+    copy.x = (el.x || 0) + 20;
+    copy.y = (el.y || 0) + 20;
+    await set(ref(db, `rooms/${roomId}/elements/${newId}`), copy);
+  });
+  gDup.appendChild(dupBtn);
+  propPanel.appendChild(gDup);
+}
+
+function rgbToHex(color) {
+  if (!color) return '#000000';
+  if (color.startsWith('#')) return color.slice(0, 7);
+  return color;
+}
+
+// 選択解除
+canvas.addEventListener('click', (e) => {
+  if (e.target === canvas) {
+    document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
+    selectedId = null;
+    propPanel.classList.remove('show');
+    hideSlashMenu();
+  }
+});
+
 // ============ 要素追加 ============
 async function addElement(type, opts = {}) {
   if (!roomId) return;
-  const centerX = canvas.clientWidth / 2 - 80 + (Math.random() - 0.5) * 200;
-  const centerY = canvas.clientHeight / 2 - 80 + (Math.random() - 0.5) * 200;
-  const x = opts.x ?? centerX;
-  const y = opts.y ?? centerY;
+  const cx = canvas.clientWidth / 2 - 80 + (Math.random() - 0.5) * 200;
+  const cy = canvas.clientHeight / 2 - 80 + (Math.random() - 0.5) * 200;
+  const x = opts.x ?? cx;
+  const y = opts.y ?? cy;
 
   const base = {
     type, x: Math.round(x), y: Math.round(y),
@@ -1061,10 +1334,10 @@ async function addElement(type, opts = {}) {
   let payload;
   switch (type) {
     case 'sticky':
-      payload = { ...base, color: pickColor(STICKY_COLORS), content: '' };
+      payload = { ...base, color: pickColor(STICKY_COLORS), content: '', fontSize: 14 };
       break;
     case 'text':
-      payload = { ...base, color: '#222', content: 'テキスト' };
+      payload = { ...base, color: '#222222', content: 'テキスト', fontSize: 18 };
       break;
     case 'rect':
       payload = { ...base, color: pickColor(SHAPE_COLORS), width: 160, height: 100 };
@@ -1079,12 +1352,12 @@ async function addElement(type, opts = {}) {
       payload = { ...base, color: '#0d99ff' };
       break;
     case 'comment':
-      payload = { ...base, content: 'コメント' };
+      payload = { ...base, content: 'コメント', fontSize: 13 };
       break;
     case 'stamp': {
       const stamp = prompt('絵文字を入力 (例: ⭐):', pickColor(STAMPS));
       if (!stamp) return;
-      payload = { ...base, content: stamp };
+      payload = { ...base, content: stamp, fontSize: 60 };
       break;
     }
     case 'image': {
@@ -1109,20 +1382,14 @@ function showSlashMenu(x, y) {
   slashActiveIndex = 0;
   slashFiltered = COMMANDS.slice();
   renderSlashMenu();
-  slashMenu.style.left = Math.min(x, window.innerWidth - 280) + 'px';
-  slashMenu.style.top  = Math.min(y, window.innerHeight - 400) + 'px';
+  slashMenu.style.left = Math.min(x, window.innerWidth - 300) + 'px';
+  slashMenu.style.top  = Math.min(y, window.innerHeight - 420) + 'px';
   slashMenu.classList.add('show');
 }
 
-function hideSlashMenu() {
-  slashMenu.classList.remove('show');
-}
+function hideSlashMenu() { slashMenu.classList.remove('show'); }
 
-function renderSlashMenu(filter = '') {
-  const f = filter.toLowerCase();
-  slashFiltered = COMMANDS.filter(c =>
-    !f || c.name.includes(f) || c.cmd.includes(f) || c.desc.includes(f)
-  );
+function renderSlashMenu() {
   if (slashFiltered.length === 0) {
     slashMenu.innerHTML = '<div style="padding:16px;color:#999;font-size:13px;">該当なし</div>';
     return;
@@ -1156,7 +1423,7 @@ function renderSlashMenu(filter = '') {
 async function executeCommand(id) {
   hideSlashMenu();
   switch (id) {
-    case 'sticky':   await addElement('sticky'); showHint('📝 付箋を追加。ダブルクリックで編集'); break;
+    case 'sticky':   await addElement('sticky'); showHint('📝 付箋追加'); break;
     case 'text':     await addElement('text');   showHint('🅰 ダブルクリックで編集'); break;
     case 'rect':     await addElement('rect'); break;
     case 'circle':   await addElement('circle'); break;
@@ -1178,25 +1445,30 @@ function showHint(msg) {
   clearTimeout(window._hintTimer);
   window._hintTimer = setTimeout(() => hintEl.classList.remove('show'), 2000);
 }
+function showPasteHint(msg) {
+  pasteHint.textContent = msg;
+  pasteHint.classList.add('show');
+  clearTimeout(window._pasteHintTimer);
+  window._pasteHintTimer = setTimeout(() => pasteHint.classList.remove('show'), 1500);
+}
 
-// ============ キーボード処理 ============
+// ============ キーボード ============
 document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase();
   const inEditable = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
 
-  // スラッシュメニューが開いているとき
   if (slashMenu.classList.contains('show')) {
     if (e.key === 'Escape') { e.preventDefault(); hideSlashMenu(); return; }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       slashActiveIndex = (slashActiveIndex + 1) % slashFiltered.length;
-      renderSlashMenu(canvas.dataset.slashFilter || '');
+      renderSlashMenu();
       return;
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       slashActiveIndex = (slashActiveIndex - 1 + slashFiltered.length) % slashFiltered.length;
-      renderSlashMenu(canvas.dataset.slashFilter || '');
+      renderSlashMenu();
       return;
     }
     if (e.key === 'Enter' && !inEditable) {
@@ -1208,32 +1480,176 @@ document.addEventListener('keydown', (e) => {
 
   if (inEditable) return;
 
-  // Delete で選択中の要素を削除
   if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
     e.preventDefault();
     remove(ref(db, `rooms/${roomId}/elements/${selectedId}`));
     selectedId = null;
+    propPanel.classList.remove('show');
     return;
   }
-});
 
-// スラッシュキー
-document.addEventListener('keypress', (e) => {
-  if (e.key !== '/') return;
-  const tag = (e.target.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
-  e.preventDefault();
-  showSlashMenu(window.innerWidth / 2 - 140, window.innerHeight / 2 - 150);
-});
+  if (e.key === 'c' || e.key === 'C') {
+    e.preventDefault();
+    toggleChat();
+  }
 
-// キャンバスクリックで選択解除 & スラッシュメニュー閉じる
-canvas.addEventListener('click', (e) => {
-  if (e.target === canvas) {
-    document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
-    selectedId = null;
-    hideSlashMenu();
+  // スペース長押しで吹き出しチャット開始（FigJam風）
+  if (e.key === ' ' && !e.repeat && !myBubble.classList.contains('show')) {
+    // スペースはスクロール防止
+    e.preventDefault();
+    openMyBubble();
   }
 });
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && !e.target.isContentEditable &&
+      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    showSlashMenu(window.innerWidth / 2 - 140, window.innerHeight / 2 - 150);
+  }
+});
+
+// ============ 自分の吹き出しチャット ============
+function openMyBubble() {
+  // マウス位置 or 中央
+  const x = window._lastMouseX || window.innerWidth / 2;
+  const y = window._lastMouseY || window.innerHeight / 2;
+  myBubble.style.transform = `translate(${x}px, ${y}px)`;
+  myBubble.classList.add('show');
+  setTimeout(() => myBubbleInput.focus(), 50);
+
+  // Firebase に吹き出し位置を登録
+  const bubblesRef = ref(db, `rooms/${roomId}/bubbles/${currentUser.uid}`);
+  set(bubblesRef, {
+    x: x - canvas.getBoundingClientRect().left,
+    y: y - canvas.getBoundingClientRect().top,
+    name: currentUser.displayName || currentUser.email.split('@')[0],
+    color: colorForUid(currentUser.uid),
+    text: '',
+    timestamp: Date.now()
+  }).catch(()=>{});
+  onDisconnect(bubblesRef).remove();
+}
+
+function sendBubble() {
+  const text = myBubbleInput.value.trim();
+  if (!text) { closeBubble(); return; }
+
+  // 自分の吹き出し表示を更新
+  const bubblesRef = ref(db, `rooms/${roomId}/bubbles/${currentUser.uid}`);
+  update(bubblesRef, { text, timestamp: Date.now() }).catch(()=>{});
+
+  // チャット履歴にも追加
+  const msgRef = push(ref(db, `rooms/${roomId}/chats`));
+  set(msgRef, {
+    text,
+    author: currentUser.displayName || currentUser.email.split('@')[0],
+    email: currentUser.email,
+    photo: currentUser.photoURL || '',
+    timestamp: Date.now()
+  }).catch(()=>{});
+
+  // 5秒後に吹き出しを消す
+  setTimeout(() => {
+    update(bubblesRef, { text: '' }).catch(()=>{});
+  }, 5000);
+
+  myBubbleInput.value = '';
+  closeBubble();
+}
+
+function closeBubble() {
+  myBubble.classList.remove('show');
+  const bubblesRef = ref(db, `rooms/${roomId}/bubbles/${currentUser.uid}`);
+  remove(bubblesRef).catch(()=>{});
+  myBubbleInput.value = '';
+}
+
+myBubbleInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); sendBubble(); }
+  if (e.key === 'Escape') { e.preventDefault(); closeBubble(); }
+});
+document.getElementById('myBubbleSend').addEventListener('click', sendBubble);
+document.getElementById('myBubbleClose').addEventListener('click', closeBubble);
+
+// マウス位置を記録
+document.addEventListener('mousemove', (e) => {
+  window._lastMouseX = e.clientX;
+  window._lastMouseY = e.clientY;
+});
+
+// ============ 画像ペースト ============
+document.addEventListener('paste', async (e) => {
+  if (!roomId || !currentUser) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  // チャット入力中などは通常のペースト
+  if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+
+  const items = e.clipboardData?.items || [];
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (!file) continue;
+      try {
+        const dataUrl = await fileToDataURL(file);
+        // サイズチェック（Firebase は1MB程度まで安全）
+        if (dataUrl.length > 900000) {
+          // 縮小
+          const resized = await resizeImage(dataUrl, 1200, 0.85);
+          await pasteImage(resized);
+        } else {
+          await pasteImage(dataUrl);
+        }
+        showPasteHint('📋 画像を貼り付けました');
+      } catch (err) {
+        console.error('画像ペーストエラー:', err);
+        showPasteHint('❌ 画像の貼り付けに失敗');
+      }
+      return;
+    }
+  }
+});
+
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function resizeImage(dataUrl, maxWidth, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const ratio = Math.min(1, maxWidth / img.width);
+      const w = Math.round(img.width * ratio);
+      const h = Math.round(img.height * ratio);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+async function pasteImage(dataUrl) {
+  const cx = canvas.clientWidth / 2 - 150 + (Math.random() - 0.5) * 200;
+  const cy = canvas.clientHeight / 2 - 150 + (Math.random() - 0.5) * 200;
+  const newId = newElemId();
+  await set(ref(db, `rooms/${roomId}/elements/${newId}`), {
+    type: 'image',
+    x: Math.round(cx),
+    y: Math.round(cy),
+    content: dataUrl,
+    author: currentUser.displayName || currentUser.email
+  });
+}
 
 // ============ ユーザー表示 ============
 function renderUsers(cursorsData) {
@@ -1269,7 +1685,6 @@ function toggleChat(force) {
 
 document.getElementById('chatBtn').addEventListener('click', () => toggleChat());
 document.getElementById('chatClose').addEventListener('click', () => toggleChat(false));
-
 document.getElementById('chatSend').addEventListener('click', sendChat);
 chatInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); sendChat(); }
@@ -1307,12 +1722,10 @@ function renderChats(data) {
     `;
     chatMessages.appendChild(div);
   });
-
-  // 一番下までスクロール
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// ============ 管理者パネル ============
+// ============ 管理者 ============
 document.getElementById('slashBtn').addEventListener('click', (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
   showSlashMenu(rect.left, rect.bottom + 6);
@@ -1403,24 +1816,8 @@ function renderAdminPanel() {
   });
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
-}
-
-// ============ ショートカット ============
-document.addEventListener('keydown', (e) => {
-  const tag = (e.target.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
-  if (e.key === 'c' || e.key === 'C') {
-    e.preventDefault();
-    toggleChat();
-  }
-});
-
 console.log('%c🎨 FigmaDG', 'color:#0d99ff;font-size:20px;font-weight:bold');
-console.log('/ キーでコマンドメニュー、C キーでチャット');
+console.log('/ → コマンド | C → チャット履歴 | Space → カーソル吹き出し | Ctrl+V → 画像貼り付け');
 </script>
 </body>
 </html>
