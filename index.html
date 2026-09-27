@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FigmaDG - CollabApp</title>
+<title>FigmaDG - FigJam風</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -18,42 +18,24 @@
 
   /* ===== ログイン画面 ===== */
   #loginScreen {
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background: linear-gradient(135deg, #1e1e1e, #2c2c3c);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     z-index: 100000;
   }
   #loginScreen.hidden { display: none; }
   .login-box {
-    background: #2a2a2a;
-    padding: 40px;
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    border: 1px solid #444;
-    max-width: 400px;
-    width: 90%;
+    background: #2a2a2a; padding: 40px; border-radius: 12px;
+    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 1px solid #444; max-width: 400px; width: 90%;
   }
   .login-box h1 { margin-bottom: 8px; font-size: 24px; }
   .login-box p { color: #999; font-size: 14px; margin-bottom: 24px; }
   .g-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    background: #fff;
-    color: #333;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 6px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    width: 100%;
-    transition: 0.2s;
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; background: #fff; color: #333; border: none;
+    padding: 12px 24px; border-radius: 6px; font-size: 15px;
+    font-weight: 600; cursor: pointer; width: 100%; transition: 0.2s;
   }
   .g-btn:hover { background: #f0f0f0; transform: translateY(-1px); }
   .g-btn svg { width: 20px; height: 20px; }
@@ -61,183 +43,325 @@
 
   /* ===== ツールバー ===== */
   #toolbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: #2c2c2c;
-    border-bottom: 1px solid #444;
-    flex-wrap: wrap;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; background: #2c2c2c;
+    border-bottom: 1px solid #444; flex-wrap: wrap;
   }
   #toolbar button, #toolbar input {
-    background: #3a3a3a;
-    color: #eee;
-    border: 1px solid #555;
-    padding: 6px 10px;
-    border-radius: 4px;
-    font-size: 13px;
-    cursor: pointer;
+    background: #3a3a3a; color: #eee; border: 1px solid #555;
+    padding: 6px 10px; border-radius: 4px; font-size: 13px; cursor: pointer;
   }
   #toolbar button.active { background: #0d99ff; border-color: #0d99ff; }
   #toolbar button:hover { background: #4a4a4a; }
   #toolbar input { cursor: text; }
-  #toolbar strong { white-space: nowrap; }
 
-  #main { flex: 1; display: flex; overflow: hidden; }
+  #main { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+  /* ===== キャンバス ===== */
   #canvas {
-    flex: 1;
-    position: relative;
-    background: #f5f5f5;
+    flex: 1; position: relative;
+    background: #f7f7f9;
     overflow: hidden;
-    cursor: crosshair;
+    cursor: default;
+    background-image:
+      radial-gradient(circle, #ddd 1px, transparent 1px);
+    background-size: 24px 24px;
   }
-  #canvas.mode-select { cursor: default; }
-  #canvas.mode-text { cursor: text; }
+  #canvas.panning { cursor: grabbing; }
+  #canvas.panning * { cursor: grabbing !important; }
 
-  #codePanel {
-    width: 420px;
-    background: #252525;
-    border-left: 1px solid #444;
-    display: flex;
-    flex-direction: column;
+  /* ===== 付箋・図形 ===== */
+  .element {
+    position: absolute;
+    user-select: none;
+    cursor: move;
+    transition: box-shadow 0.15s;
   }
-  .code-tabs { display: flex; border-bottom: 1px solid #444; }
-  .code-tabs button {
-    flex: 1;
-    background: #2c2c2c;
-    color: #aaa;
-    border: none;
-    padding: 10px;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    font-size: 13px;
+  .element:hover { box-shadow: 0 0 0 2px rgba(13,153,255,0.3); }
+  .element.selected {
+    box-shadow: 0 0 0 3px #0d99ff, 0 4px 12px rgba(0,0,0,0.15);
   }
-  .code-tabs button.active {
-    background: #333;
-    color: #fff;
-    border-bottom-color: #0d99ff;
+  .element .resize-handle {
+    position: absolute; width: 10px; height: 10px;
+    background: white; border: 2px solid #0d99ff;
+    border-radius: 50%; display: none;
   }
-  .code-editor { flex: 1; display: none; flex-direction: column; overflow: hidden; }
-  .code-editor.active { display: flex; }
-  .code-editor textarea {
-    flex: 1;
-    background: #1a1a1a;
-    color: #d4d4d4;
-    border: none;
-    padding: 12px;
-    font-family: "Consolas", "Monaco", monospace;
-    font-size: 12.5px;
-    resize: none;
+  .element.selected .resize-handle { display: block; }
+  .resize-handle.br { right: -5px; bottom: -5px; cursor: se-resize; }
+  .resize-handle.bl { left: -5px; bottom: -5px; cursor: sw-resize; }
+  .resize-handle.tr { right: -5px; top: -5px; cursor: ne-resize; }
+  .resize-handle.tl { left: -5px; top: -5px; cursor: nw-resize; }
+  .element .delete-btn {
+    position: absolute; top: -12px; right: -12px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #c0392b; color: white; border: 2px solid white;
+    font-size: 12px; line-height: 1; cursor: pointer;
+    display: none; align-items: center; justify-content: center;
+    font-weight: bold;
+  }
+  .element.selected .delete-btn { display: flex; }
+  .element .delete-btn:hover { background: #e74c3c; }
+
+  /* 付箋 */
+  .el-sticky {
+    width: 180px; height: 180px;
+    padding: 12px; border-radius: 3px;
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
+    font-size: 14px; line-height: 1.4;
+    overflow: hidden; word-wrap: break-word;
     outline: none;
-    line-height: 1.5;
+  }
+  .el-sticky[contenteditable="true"]:focus {
+    box-shadow: 0 0 0 3px #0d99ff, 2px 2px 6px rgba(0,0,0,0.15);
   }
 
-  #previewFrame {
-    position: absolute;
-    top: 30px;
-    left: 20px;
-    width: 500px;
-    height: 400px;
-    border: 2px solid #0d99ff;
-    background: white;
-    overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    resize: both;
+  /* 図形 */
+  .el-rect {
+    width: 160px; height: 100px;
+    border-radius: 6px;
   }
-  #previewFrame iframe { width: 100%; height: 100%; border: none; }
-  #previewFrame .frame-label {
-    position: absolute;
-    top: -22px;
-    left: 0;
-    font-size: 11px;
-    color: #0d99ff;
-    font-weight: 600;
-    white-space: nowrap;
+  .el-circle {
+    width: 120px; height: 120px;
+    border-radius: 50%;
   }
-  #previewFrame .frame-badge {
-    position: absolute;
-    top: -22px;
-    right: 0;
-    font-size: 10px;
-    color: #fff;
+  .el-triangle {
+    width: 0; height: 0;
+    border-left: 70px solid transparent;
+    border-right: 70px solid transparent;
+    border-bottom: 120px solid #0d99ff;
+    background: transparent !important;
+  }
+  .el-arrow {
+    width: 180px; height: 6px;
     background: #0d99ff;
-    padding: 1px 6px;
     border-radius: 3px;
-    font-weight: 600;
+  }
+  .el-arrow::after {
+    content: ''; position: absolute; right: -2px; top: 50%;
+    transform: translateY(-50%);
+    border: 10px solid transparent;
+    border-left-color: #0d99ff;
   }
 
-  .element { position: absolute; cursor: move; user-select: none; }
-  .element.selected { outline: 2px solid #0d99ff; }
+  /* テキスト */
+  .el-text {
+    padding: 4px 6px; font-size: 18px;
+    color: #222; outline: none;
+    min-width: 40px;
+    border-radius: 4px;
+  }
+  .el-text[contenteditable="true"]:focus {
+    background: rgba(13,153,255,0.08);
+    box-shadow: 0 0 0 2px #0d99ff;
+  }
 
+  /* コメント（吹き出し） */
+  .el-comment {
+    width: 200px;
+    background: #fff;
+    border: 2px solid #f39c12;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 13px;
+    color: #222;
+    box-shadow: 2px 4px 10px rgba(0,0,0,0.15);
+  }
+  .el-comment::before {
+    content: '';
+    position: absolute; bottom: -10px; left: 20px;
+    border: 8px solid transparent;
+    border-top-color: #f39c12;
+  }
+
+  /* 画像 */
+  .el-image {
+    max-width: 400px;
+    border-radius: 6px;
+    box-shadow: 2px 4px 10px rgba(0,0,0,0.15);
+  }
+  .el-image img { display: block; max-width: 100%; border-radius: 6px; }
+
+  /* スタンプ */
+  .el-stamp {
+    font-size: 60px; line-height: 1;
+    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2));
+  }
+
+  /* ===== リモートカーソル ===== */
   .remote-cursor {
-    position: absolute;
-    pointer-events: none;
-    z-index: 9999;
+    position: absolute; pointer-events: none; z-index: 9999;
     transition: transform 0.08s linear;
     transform-origin: top left;
   }
   .remote-cursor svg { display: block; }
   .remote-cursor .label {
-    position: absolute;
-    left: 14px;
-    top: 14px;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 11px;
-    color: white;
-    white-space: nowrap;
-    font-weight: 500;
+    position: absolute; left: 14px; top: 14px;
+    padding: 2px 6px; border-radius: 3px;
+    font-size: 11px; color: white; white-space: nowrap; font-weight: 500;
   }
 
+  /* ===== ステータス ===== */
   #status {
-    position: absolute;
-    bottom: 10px;
-    left: 10px;
-    font-size: 12px;
-    color: #666;
-    background: rgba(255,255,255,0.85);
-    padding: 4px 8px;
-    border-radius: 3px;
+    position: absolute; bottom: 12px; left: 12px;
+    font-size: 12px; color: #555;
+    background: rgba(255,255,255,0.9);
+    padding: 6px 10px; border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    pointer-events: none;
   }
   #users { display: flex; gap: 4px; align-items: center; }
   .user-dot {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
+    width: 26px; height: 26px; border-radius: 50%;
     border: 2px solid #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    color: white;
-    font-weight: bold;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: white; font-weight: bold;
     position: relative;
   }
   .user-dot.me { border-color: #f39c12; }
-  .user-dot img {
-    width: 100%; height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-  }
+  .user-dot img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
   .user-dot.admin::after {
-    content: '👑';
-    position: absolute;
-    top: -8px; right: -8px;
-    font-size: 12px;
+    content: '👑'; position: absolute; top: -8px; right: -8px; font-size: 12px;
   }
 
-  .hint {
-    font-size: 11px;
-    color: #888;
-    padding: 6px 12px;
-    background: #1f1f1f;
-    border-bottom: 1px solid #333;
+  /* ===== スラッシュコマンドメニュー ===== */
+  #slashMenu {
+    position: fixed;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    z-index: 60000;
+    min-width: 260px;
+    max-height: 380px;
+    overflow-y: auto;
+    display: none;
   }
-  .hint code {
-    background: #333;
-    padding: 1px 4px;
-    border-radius: 2px;
-    color: #6cc;
+  #slashMenu.show { display: block; }
+  .slash-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; cursor: pointer;
+    border-bottom: 1px solid #333;
+    transition: background 0.1s;
+  }
+  .slash-item:last-child { border-bottom: none; }
+  .slash-item:hover, .slash-item.active {
+    background: #0d99ff;
+  }
+  .slash-item:hover .si-name, .slash-item.active .si-name,
+  .slash-item:hover .si-desc, .slash-item.active .si-desc {
+    color: white;
+  }
+  .slash-icon {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: #3a3a3a; border-radius: 6px;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .slash-item:hover .slash-icon, .slash-item.active .slash-icon {
+    background: rgba(255,255,255,0.2);
+  }
+  .slash-info { flex: 1; min-width: 0; }
+  .si-name { font-size: 13px; font-weight: 600; color: #eee; }
+  .si-desc { font-size: 11px; color: #999; margin-top: 2px; }
+  .si-cmd {
+    font-size: 11px; color: #0d99ff;
+    font-family: monospace;
+    background: #1a1a1a;
+    padding: 2px 6px; border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .slash-item:hover .si-cmd, .slash-item.active .si-cmd {
+    background: rgba(255,255,255,0.15);
+    color: white;
+  }
+
+  /* ===== チャット ===== */
+  #chatPanel {
+    position: fixed;
+    right: 20px; bottom: 20px;
+    width: 320px; height: 420px;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    display: none;
+    flex-direction: column;
+    z-index: 55000;
+  }
+  #chatPanel.show { display: flex; }
+  .chat-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid #444;
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: 600; font-size: 14px;
+  }
+  .chat-head button {
+    background: transparent; border: none;
+    color: #999; font-size: 20px; cursor: pointer;
+  }
+  #chatMessages {
+    flex: 1; overflow-y: auto;
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .chat-msg {
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #3a3a3a;
+    max-width: 85%;
+    word-wrap: break-word;
+  }
+  .chat-msg.mine {
+    background: #0d99ff;
+    align-self: flex-end;
+  }
+  .chat-msg .cm-author {
+    font-size: 10px; font-weight: 600;
+    margin-bottom: 3px;
+    opacity: 0.8;
+  }
+  .chat-msg.mine .cm-author { color: rgba(255,255,255,0.85); }
+  .chat-msg .cm-text { font-size: 13px; line-height: 1.4; }
+  .chat-msg .cm-time {
+    font-size: 9px; opacity: 0.6; margin-top: 3px;
+  }
+  .chat-input {
+    padding: 10px;
+    border-top: 1px solid #444;
+    display: flex; gap: 6px;
+  }
+  .chat-input input {
+    flex: 1; background: #1a1a1a; color: #eee;
+    border: 1px solid #444; border-radius: 6px;
+    padding: 8px 10px; font-size: 13px; outline: none;
+  }
+  .chat-input input:focus { border-color: #0d99ff; }
+  .chat-input button {
+    background: #0d99ff; color: white; border: none;
+    padding: 8px 14px; border-radius: 6px;
+    cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+  .chat-input button:hover { background: #0b7fd9; }
+
+  /* ===== アバター・ミニマップ ===== */
+  #miniMap {
+    position: fixed;
+    right: 20px; bottom: 460px;
+    width: 200px; height: 140px;
+    background: rgba(255,255,255,0.95);
+    border: 1px solid #444;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    overflow: hidden;
+    z-index: 50000;
+    display: none;
+  }
+  #miniMap.show { display: block; }
+  #miniMap .mm-viewport {
+    position: absolute;
+    border: 2px solid #0d99ff;
+    background: rgba(13,153,255,0.1);
+    pointer-events: none;
   }
 
   /* ===== 管理者パネル ===== */
@@ -260,109 +384,82 @@
   }
   #adminPanel.show { display: block; }
   #adminPanel .ap-head {
-    padding: 12px 16px;
-    border-bottom: 1px solid #444;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: 600;
+    padding: 12px 16px; border-bottom: 1px solid #444;
+    display: flex; justify-content: space-between;
+    align-items: center; font-weight: 600;
   }
   #adminPanel .ap-head button {
-    background: transparent;
-    border: none;
-    color: #999;
-    font-size: 20px;
-    cursor: pointer;
-    padding: 0 4px;
+    background: transparent; border: none;
+    color: #999; font-size: 20px; cursor: pointer;
   }
   #adminPanel .ap-body { padding: 12px 16px; max-height: 400px; overflow-y: auto; }
   .user-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px;
-    border-radius: 6px;
-    margin-bottom: 6px;
-    background: #333;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px; border-radius: 6px;
+    margin-bottom: 6px; background: #333;
   }
   .user-row img, .user-row .ph {
     width: 32px; height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
+    border-radius: 50%; object-fit: cover; flex-shrink: 0;
   }
   .user-row .ph {
-    background: #555;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-    font-size: 14px;
+    background: #555; display: flex;
+    align-items: center; justify-content: center;
+    color: white; font-weight: bold; font-size: 14px;
   }
   .user-row .uinfo { flex: 1; min-width: 0; }
   .user-row .uname {
-    font-size: 13px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
+    font-size: 13px; font-weight: 600;
+    display: flex; align-items: center;
+    gap: 4px; flex-wrap: wrap;
   }
   .user-row .uemail {
-    font-size: 11px;
-    color: #999;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 11px; color: #999;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .user-row .ubtn {
-    background: #c0392b;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 11px;
-    cursor: pointer;
-    font-weight: 600;
-    white-space: nowrap;
+    background: #c0392b; color: white; border: none;
+    padding: 5px 10px; border-radius: 4px;
+    font-size: 11px; cursor: pointer;
+    font-weight: 600; white-space: nowrap;
   }
   .user-row .ubtn:hover { background: #e74c3c; }
   .user-row .ubtn.unban { background: #27ae60; }
   .user-row .ubtn.unban:hover { background: #2ecc71; }
   .user-row.banned { opacity: 0.7; }
-  .user-row .badge-ban {
-    background: #c0392b;
-    color: white;
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 3px;
-    font-weight: 600;
+  .badge-ban {
+    background: #c0392b; color: white; font-size: 10px;
+    padding: 1px 6px; border-radius: 3px; font-weight: 600;
   }
-  .user-row .badge-admin {
-    background: #d35400;
-    color: white;
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 3px;
-    font-weight: 600;
+  .badge-admin {
+    background: #d35400; color: white; font-size: 10px;
+    padding: 1px 6px; border-radius: 3px; font-weight: 600;
   }
 
   /* ===== BAN画面 ===== */
   #banScreen {
-    position: fixed;
-    inset: 0;
-    background: #000;
-    color: #fff;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 999999;
-    text-align: center;
-    font-family: monospace;
+    position: fixed; inset: 0;
+    background: #000; color: #fff;
+    display: none; align-items: center; justify-content: center;
+    z-index: 999999; text-align: center; font-family: monospace;
   }
   #banScreen.show { display: flex; }
   #banScreen .msg { font-size: 14px; color: #666; }
+
+  /* ===== ヒント ===== */
+  #hint {
+    position: absolute; top: 12px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(13,153,255,0.95);
+    color: white; padding: 6px 14px;
+    border-radius: 20px; font-size: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 100;
+  }
+  #hint.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -370,7 +467,7 @@
 <!-- ===== ログイン画面 ===== -->
 <div id="loginScreen">
   <div class="login-box">
-    <h1>🎨 FigmaDG CollabApp</h1>
+    <h1>🎨 FigmaDG</h1>
     <p>続けるには Google アカウントでログインしてください</p>
     <button class="g-btn" id="googleLogin">
       <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.5 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2c-.4.4 6.6-4.8 6.6-14.8 0-1.3-.1-2.3-.4-3.5z"/></svg>
@@ -388,51 +485,42 @@
   </div>
 </div>
 
-<!-- ===== メインUI ===== -->
+<!-- ===== ツールバー ===== -->
 <div id="toolbar">
   <strong>🎨 FigmaDG</strong>
-  <input id="roomInput" placeholder="部屋ID" style="width:120px">
+  <input id="roomInput" placeholder="部屋ID" style="width:110px">
   <button id="joinBtn">参加</button>
-  <span style="border-left:1px solid #555; height:20px; margin:0 8px"></span>
-  <button data-mode="select" class="mode active">選択</button>
-  <button data-mode="text" class="mode">テキスト</button>
-  <button data-mode="rect" class="mode">四角形</button>
-  <button data-mode="circle" class="mode">円</button>
-  <button id="runBtn" title="プレビュー再実行">▶ 実行</button>
-  <button id="clearBtn">全消去</button>
-  <span style="border-left:1px solid #555; height:20px; margin:0 8px"></span>
+  <span style="border-left:1px solid #555; height:20px; margin:0 4px"></span>
+  <button id="slashBtn" title="/ キーでメニュー">/ コマンド</button>
+  <button id="chatBtn" title="チャット (C)">💬 チャット</button>
+  <button id="clearBtn">🗑 全消去</button>
+  <span style="border-left:1px solid #555; height:20px; margin:0 4px"></span>
   <button id="adminBtn" style="display:none">👑 管理</button>
-  <div id="users"></div>
+  <div id="users" style="margin-left:8px"></div>
   <button id="logoutBtn" style="margin-left:auto">ログアウト</button>
 </div>
 
+<!-- ===== キャンバス ===== -->
 <div id="main">
-  <div id="canvas" class="mode-select">
-    <div id="previewFrame">
-      <div class="frame-label">📄 ライブプレビュー</div>
-      <div class="frame-badge" id="runBadge">JS実行中</div>
-      <iframe id="preview" sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe>
-    </div>
+  <div id="canvas">
+    <div id="hint"></div>
     <div id="status">未接続</div>
   </div>
-  <div id="codePanel">
-    <div class="code-tabs">
-      <button data-tab="html" class="active">HTML</button>
-      <button data-tab="css">CSS</button>
-      <button data-tab="js">JS</button>
-    </div>
-    <div class="code-editor active" data-editor="html">
-      <div class="hint">HTMLを書けます。<code>&lt;button id="btn"&gt;</code> など</div>
-      <textarea id="htmlCode" spellcheck="false"></textarea>
-    </div>
-    <div class="code-editor" data-editor="css">
-      <div class="hint">CSSでスタイルを設定</div>
-      <textarea id="cssCode" spellcheck="false"></textarea>
-    </div>
-    <div class="code-editor" data-editor="js">
-      <div class="hint">JavaScriptで動作を設定</div>
-      <textarea id="jsCode" spellcheck="false"></textarea>
-    </div>
+</div>
+
+<!-- ===== スラッシュメニュー ===== -->
+<div id="slashMenu"></div>
+
+<!-- ===== チャットパネル ===== -->
+<div id="chatPanel">
+  <div class="chat-head">
+    <span>💬 チャット</span>
+    <button id="chatClose">×</button>
+  </div>
+  <div id="chatMessages"></div>
+  <div class="chat-input">
+    <input id="chatInput" placeholder="メッセージを入力..." maxlength="500">
+    <button id="chatSend">送信</button>
   </div>
 </div>
 
@@ -453,7 +541,7 @@ import { getDatabase, ref, onValue, set, onDisconnect, remove, push, update, get
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-// ============ Firebase 設定（正しいAPIキー） ============
+// ============ Firebase 設定 ============
 const firebaseConfig = {
   apiKey: "AIzaSyB4CAdLIM07WBgm7JHCdMqRxvhA2iKWOp8",
   authDomain: "figmadg-8575c.firebaseapp.com",
@@ -461,20 +549,17 @@ const firebaseConfig = {
   projectId: "figmadg-8575c",
   storageBucket: "figmadg-8575c.firebasestorage.app",
   messagingSenderId: "194855566776",
-  appId: "1:194855566776:web:a9ef3c1d3a1f19624a234d",
-  measurementId: "G-MPQ51HE0GW"
+  appId: "1:194855566776:web:a9ef3c1d3a1f19624a234d"
 };
 
-// ============ 管理者メールアドレス ============
+// ============ 管理者設定 ============
 const ADMIN_EMAILS = [
   "katou.noel114514@gmail.com",
   "18107@v.nakijin.ed.jp"
 ];
-
-// ============ 管理者UID（二重チェック用） ============
 const ADMIN_UIDS = [
-  "dXz1d6jdMWMB7l5pQGCpEYkukZi2",  // katou.noel114514@gmail.com
-  "48IOjYhn3VZNPUKyPE5LA85J0o93"   // 18107@v.nakijin.ed.jp
+  "dXz1d6jdMWMB7l5pQGCpEYkukZi2",
+  "48IOjYhn3VZNPUKyPE5LA85J0o93"
 ];
 
 const app = initializeApp(firebaseConfig);
@@ -483,49 +568,73 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
-// ============ グローバル状態 ============
+// ============ 状態 ============
 let currentUser = null;
 let isAdmin = false;
 let roomId = null;
-let mode = 'select';
 let elements = {};
 let elementRefs = {};
 let myCursorRef = null;
 let unsubscribers = [];
 let banUnsub = null;
 let usersUnsub = null;
-let selectedId = null;
+let chatUnsub = null;
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
-let currentDragEl = null;
-let currentHTML = '', currentCSS = '', currentJS = '';
+let currentDragId = null;
+let resizeState = null;
+let selectedId = null;
 let bannedUsers = {};
 let allUsers = {};
 let isBanned = false;
+let editingElement = null;
 
 const canvas = document.getElementById('canvas');
 const statusEl = document.getElementById('status');
 const usersEl = document.getElementById('users');
-const preview = document.getElementById('preview');
-const htmlCode = document.getElementById('htmlCode');
-const cssCode = document.getElementById('cssCode');
-const jsCode = document.getElementById('jsCode');
-const runBadge = document.getElementById('runBadge');
 const loginScreen = document.getElementById('loginScreen');
 const banScreen = document.getElementById('banScreen');
 const adminBtn = document.getElementById('adminBtn');
 const adminPanel = document.getElementById('adminPanel');
 const apBody = document.getElementById('apBody');
+const slashMenu = document.getElementById('slashMenu');
+const chatPanel = document.getElementById('chatPanel');
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const hintEl = document.getElementById('hint');
 
-// ============ UIDから色を生成 ============
+// ============ スラッシュコマンド定義 ============
+const COMMANDS = [
+  { id: 'sticky',   icon: '📝', name: '付箋',       cmd: '/sticky',   desc: '付箋を追加' },
+  { id: 'text',     icon: '🅰',  name: 'テキスト',    cmd: '/text',     desc: 'テキストを追加' },
+  { id: 'rect',     icon: '⬛', name: '四角形',      cmd: '/rect',     desc: '四角形を追加' },
+  { id: 'circle',   icon: '⚫', name: '円',          cmd: '/circle',   desc: '円を追加' },
+  { id: 'triangle', icon: '🔺', name: '三角形',      cmd: '/triangle', desc: '三角形を追加' },
+  { id: 'arrow',    icon: '➡', name: '矢印',        cmd: '/arrow',    desc: '矢印を追加' },
+  { id: 'comment',  icon: '💬', name: 'コメント',    cmd: '/comment',  desc: '吹き出しコメント' },
+  { id: 'stamp',    icon: '⭐', name: 'スタンプ',    cmd: '/stamp',    desc: '絵文字スタンプ' },
+  { id: 'image',    icon: '🖼', name: '画像',        cmd: '/image',    desc: '画像URLから追加' },
+  { id: 'chat',     icon: '💭', name: 'チャット',    cmd: '/chat',     desc: 'チャットを開く' },
+  { id: 'clear',    icon: '🗑', name: '全消去',      cmd: '/clear',    desc: '全要素を削除' },
+];
+
+const STICKY_COLORS = ['#fef08a','#fbcfe8','#bfdbfe','#bbf7d0','#fed7aa','#e9d5ff'];
+const SHAPE_COLORS  = ['#0d99ff','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'];
+const STAMPS        = ['⭐','❤️','👍','🎉','🔥','✨','💯','👀','🚀','🎨','💡','✅'];
+
+// ============ UIDから色 ============
 function colorForUid(uid) {
   const colors = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e','#e91e63','#00bcd4'];
   let h = 0;
   for (let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) >>> 0;
   return colors[h % colors.length];
 }
+function pickColor(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-// ============ ログイン処理 ============
+function isAdminEmail(email) { return email && ADMIN_EMAILS.includes(email); }
+function isAdminUid(uid)     { return uid && ADMIN_UIDS.includes(uid); }
+
+// ============ ログイン ============
 document.getElementById('googleLogin').addEventListener('click', async () => {
   const errEl = document.getElementById('loginError');
   errEl.textContent = '';
@@ -533,7 +642,6 @@ document.getElementById('googleLogin').addEventListener('click', async () => {
     await signInWithPopup(auth, provider);
   } catch (e) {
     errEl.textContent = 'ログイン失敗: ' + e.message;
-    console.error(e);
   }
 });
 
@@ -543,7 +651,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   location.reload();
 });
 
-// ============ BAN画面を表示 ============
+// ============ BAN画面 ============
 function showBanScreen() {
   if (isBanned) return;
   isBanned = true;
@@ -551,8 +659,8 @@ function showBanScreen() {
   document.getElementById('toolbar').style.display = 'none';
   document.getElementById('main').style.display = 'none';
   adminPanel.classList.remove('show');
-
-  try { preview.srcdoc = ''; } catch(e){}
+  chatPanel.classList.remove('show');
+  slashMenu.classList.remove('show');
 
   setTimeout(() => {
     try {
@@ -563,37 +671,27 @@ function showBanScreen() {
   }, 1800);
 }
 
-// ============ 管理者判定 ============
-function isAdminEmail(email) {
-  return email && ADMIN_EMAILS.includes(email);
-}
-function isAdminUid(uid) {
-  return uid && ADMIN_UIDS.includes(uid);
-}
-
-// ============ 認証状態監視 ============
+// ============ 認証監視 ============
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    currentUser = null;
-    isAdmin = false;
+    currentUser = null; isAdmin = false;
     loginScreen.classList.remove('hidden');
     unsubscribers.forEach(fn => fn()); unsubscribers = [];
     if (banUnsub) { banUnsub(); banUnsub = null; }
     if (usersUnsub) { usersUnsub(); usersUnsub = null; }
+    if (chatUnsub) { chatUnsub(); chatUnsub = null; }
     return;
   }
 
   currentUser = user;
   loginScreen.classList.add('hidden');
 
-  // === 管理者判定 ===
   isAdmin = isAdminEmail(user.email) || isAdminUid(user.uid);
   try {
     const snap = await get(child(ref(db), `admins/${user.uid}`));
     if (snap.exists()) isAdmin = true;
-  } catch (e) { console.warn('admin check failed', e); }
+  } catch(e) {}
 
-  // === ユーザー情報をDBに登録 ===
   try {
     await set(ref(db, `users/${user.uid}`), {
       email: user.email,
@@ -601,22 +699,16 @@ onAuthStateChanged(auth, async (user) => {
       photo: user.photoURL || '',
       lastSeen: Date.now()
     });
-  } catch (e) { console.warn('user register failed', e); }
+  } catch(e) {}
 
-  // === BANチェック（リアルタイム） ===
   if (banUnsub) banUnsub();
   banUnsub = onValue(ref(db, 'banned'), (snap) => {
     bannedUsers = snap.val() || {};
-    if (bannedUsers[user.uid]) {
-      console.warn('あなたはBANされています');
-      showBanScreen();
-    }
+    if (bannedUsers[user.uid]) showBanScreen();
   });
 
-  // === 管理者ボタン表示 ===
   adminBtn.style.display = isAdmin ? '' : 'none';
 
-  // === 部屋に参加 ===
   const initialRoom = document.getElementById('roomInput').value.trim()
     || 'room-' + Math.random().toString(36).slice(2, 6);
   document.getElementById('roomInput').value = initialRoom;
@@ -632,9 +724,9 @@ function joinRoom(id) {
   usersEl.innerHTML = '';
 
   roomId = id;
-  statusEl.textContent = `部屋: ${roomId} (${currentUser.displayName || currentUser.email})`;
+  statusEl.textContent = `📁 ${roomId}  |  ${currentUser.displayName || currentUser.email}`;
 
-  // --- カーソル ---
+  // カーソル
   const cursorsRef = ref(db, `rooms/${roomId}/cursors`);
   myCursorRef = ref(db, `rooms/${roomId}/cursors/${currentUser.uid}`);
   onDisconnect(myCursorRef).remove();
@@ -648,7 +740,6 @@ function joinRoom(id) {
       if (uid === currentUser.uid) return;
       const el = document.createElement('div');
       el.className = 'remote-cursor';
-      el.dataset.uid = uid;
       el.style.transform = `translate(${cur.x}px, ${cur.y}px)`;
       el.innerHTML = `
         <svg width="20" height="20" viewBox="0 0 20 20">
@@ -661,7 +752,7 @@ function joinRoom(id) {
     });
   }));
 
-  // --- 要素 ---
+  // 要素
   unsubscribers.push(onValue(ref(db, `rooms/${roomId}/elements`), snap => {
     const data = snap.val() || {};
     Object.keys(elementRefs).forEach(eid => {
@@ -672,107 +763,122 @@ function joinRoom(id) {
       }
     });
     Object.entries(data).forEach(([eid, el]) => {
+      const isEditing = elementRefs[eid] &&
+        elementRefs[eid].querySelector('[contenteditable="true"]') === document.activeElement;
       elements[eid] = el;
       if (!elementRefs[eid]) {
         elementRefs[eid] = createElementDOM(eid, el);
         canvas.appendChild(elementRefs[eid]);
-      } else {
+      } else if (!isEditing) {
         updateElementDOM(eid, el);
       }
     });
   }));
 
-  // --- コード ---
-  unsubscribers.push(onValue(ref(db, `rooms/${roomId}/code/html`), snap => {
-    const v = snap.val() || '';
-    currentHTML = v;
-    if (document.activeElement !== htmlCode) htmlCode.value = v;
-    updatePreview();
-  }));
-  unsubscribers.push(onValue(ref(db, `rooms/${roomId}/code/css`), snap => {
-    const v = snap.val() || '';
-    currentCSS = v;
-    if (document.activeElement !== cssCode) cssCode.value = v;
-    updatePreview();
-  }));
-  unsubscribers.push(onValue(ref(db, `rooms/${roomId}/code/js`), snap => {
-    const v = snap.val() || '';
-    currentJS = v;
-    if (document.activeElement !== jsCode) jsCode.value = v;
-    updatePreview();
-  }));
+  // チャット
+  if (chatUnsub) chatUnsub();
+  chatUnsub = onValue(ref(db, `rooms/${roomId}/chats`), snap => {
+    const data = snap.val() || {};
+    renderChats(data);
+  });
 
-  // --- 管理者: 全ユーザー監視 ---
+  // 管理者: ユーザー監視
   if (isAdmin) {
     if (usersUnsub) usersUnsub();
     usersUnsub = onValue(ref(db, 'users'), snap => {
       allUsers = snap.val() || {};
       if (adminPanel.classList.contains('show')) renderAdminPanel();
-      renderUsers(Object.fromEntries(
-        Object.entries(allUsers).map(([uid, u]) => [uid, {
-          name: u.name, color: colorForUid(uid), x: 0, y: 0
-        }])
-      ));
     });
   }
 }
 
-// ============ ユーザーアバター表示 ============
-function renderUsers(cursorsData) {
-  const seen = new Set();
-  const existing = new Set();
-  Array.from(usersEl.children).forEach(c => existing.add(c.dataset.uid));
-
-  Object.entries(cursorsData).forEach(([uid, cur]) => {
-    if (seen.has(uid)) return;
-    seen.add(uid);
-    if (existing.has(uid)) return;
-
-    const info = allUsers[uid] || {};
-    const dot = document.createElement('div');
-    dot.className = 'user-dot';
-    dot.dataset.uid = uid;
-    if (uid === currentUser.uid) dot.classList.add('me');
-    if (isAdminEmail(info.email) || isAdminUid(uid)) dot.classList.add('admin');
-
-    if (info.photo) {
-      dot.innerHTML = `<img src="${info.photo}" alt="">`;
-    } else {
-      dot.style.background = cur.color || colorForUid(uid);
-      dot.textContent = (cur.name || '?').slice(-2);
-    }
-    dot.title = `${cur.name || uid}${(isAdminEmail(info.email) || isAdminUid(uid)) ? ' 👑' : ''}`;
-    usersEl.appendChild(dot);
-  });
-
-  // 消えたユーザーを削除
-  Array.from(usersEl.children).forEach(c => {
-    if (!seen.has(c.dataset.uid)) c.remove();
-  });
-}
-
-// ============ 要素DOM ============
+// ============ 要素DOM生成 ============
 function createElementDOM(id, el) {
   const div = document.createElement('div');
   div.className = 'element';
   div.dataset.id = id;
+  div.dataset.type = el.type;
   div.style.left = el.x + 'px';
   div.style.top = el.y + 'px';
-  if (el.type === 'text') {
-    div.textContent = el.content || '';
-    div.style.color = el.color || '#000';
-    div.style.fontSize = '16px';
-  } else if (el.type === 'rect') {
-    div.style.width = '100px';
-    div.style.height = '60px';
-    div.style.background = el.color || '#0d99ff';
-  } else if (el.type === 'circle') {
-    div.style.width = '80px';
-    div.style.height = '80px';
-    div.style.borderRadius = '50%';
-    div.style.background = el.color || '#0d99ff';
+
+  let inner = '';
+
+  switch (el.type) {
+    case 'sticky':
+      div.classList.add('el-sticky');
+      div.style.background = el.color || pickColor(STICKY_COLORS);
+      div.textContent = el.content || '';
+      div.contentEditable = 'false';
+      break;
+    case 'text':
+      div.classList.add('el-text');
+      div.textContent = el.content || 'テキスト';
+      div.style.color = el.color || '#222';
+      div.contentEditable = 'false';
+      break;
+    case 'rect':
+      div.classList.add('el-rect');
+      div.style.background = el.color || '#0d99ff';
+      if (el.width)  div.style.width  = el.width + 'px';
+      if (el.height) div.style.height = el.height + 'px';
+      break;
+    case 'circle':
+      div.classList.add('el-circle');
+      div.style.background = el.color || '#0d99ff';
+      if (el.width)  div.style.width  = el.width + 'px';
+      if (el.height) div.style.height = el.height + 'px';
+      break;
+    case 'triangle':
+      div.classList.add('el-triangle');
+      div.style.borderBottomColor = el.color || '#0d99ff';
+      break;
+    case 'arrow':
+      div.classList.add('el-arrow');
+      div.style.background = el.color || '#0d99ff';
+      break;
+    case 'comment':
+      div.classList.add('el-comment');
+      div.textContent = el.content || 'コメント';
+      div.contentEditable = 'false';
+      break;
+    case 'stamp':
+      div.classList.add('el-stamp');
+      div.textContent = el.content || '⭐';
+      break;
+    case 'image':
+      div.classList.add('el-image');
+      inner = `<img src="${el.content}" alt="" draggable="false">`;
+      break;
+    default:
+      div.textContent = el.content || '';
   }
+
+  if (inner) div.innerHTML = inner;
+
+  // ハンドル類
+  if (['sticky','text','comment','rect','circle','image'].includes(el.type)) {
+    ['tl','tr','bl','br'].forEach(pos => {
+      const h = document.createElement('div');
+      h.className = 'resize-handle ' + pos;
+      h.addEventListener('mousedown', (e) => startResize(e, id, pos));
+      div.appendChild(h);
+    });
+  }
+
+  // 削除ボタン
+  const del = document.createElement('div');
+  del.className = 'delete-btn';
+  del.textContent = '×';
+  del.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (confirm('削除しますか？')) remove(ref(db, `rooms/${roomId}/elements/${id}`));
+  });
+  div.appendChild(del);
+
+  // マウスイベント
   div.addEventListener('mousedown', onElementMouseDown);
+  div.addEventListener('dblclick', onElementDblClick);
+
   return div;
 }
 
@@ -781,25 +887,34 @@ function updateElementDOM(id, el) {
   if (!dom) return;
   dom.style.left = el.x + 'px';
   dom.style.top = el.y + 'px';
-  if (el.type === 'text' && dom.textContent !== el.content) {
+  if (el.width)  dom.style.width  = el.width + 'px';
+  if (el.height) dom.style.height = el.height + 'px';
+
+  if ((el.type === 'sticky' || el.type === 'text' || el.type === 'comment') &&
+      dom.textContent !== el.content) {
     dom.textContent = el.content || '';
   }
 }
 
-// ============ ドラッグ処理 ============
+// ============ ドラッグ ============
 function onElementMouseDown(e) {
-  if (mode !== 'select' && mode !== 'text') return;
+  if (e.target.classList.contains('resize-handle')) return;
+  if (e.target.classList.contains('delete-btn')) return;
+  const div = e.currentTarget;
+  if (div.querySelector('[contenteditable="true"]') === document.activeElement) return;
+
   e.stopPropagation();
-  const id = e.currentTarget.dataset.id;
+
+  const id = div.dataset.id;
   const el = elements[id];
   if (!el) return;
 
   selectedId = id;
-  Object.values(elementRefs).forEach(d => d.classList.remove('selected'));
-  elementRefs[id].classList.add('selected');
+  document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
+  div.classList.add('selected');
 
   isDragging = true;
-  currentDragEl = id;
+  currentDragId = id;
   const rect = canvas.getBoundingClientRect();
   dragOffset.x = (e.clientX - rect.left) - el.x;
   dragOffset.y = (e.clientY - rect.top) - el.y;
@@ -824,59 +939,389 @@ canvas.addEventListener('mousemove', e => {
     }
   }
 
-  if (isDragging && currentDragEl) {
-    const nx = x - dragOffset.x;
-    const ny = y - dragOffset.y;
-    elementRefs[currentDragEl].style.left = nx + 'px';
-    elementRefs[currentDragEl].style.top = ny + 'px';
+  if (isDragging && currentDragId) {
+    const dom = elementRefs[currentDragId];
+    if (!dom) return;
+    dom.style.left = (x - dragOffset.x) + 'px';
+    dom.style.top  = (y - dragOffset.y) + 'px';
+  }
+
+  if (resizeState) {
+    const { id, pos, startX, startY, origW, origH, origX, origY } = resizeState;
+    const dom = elementRefs[id];
+    if (!dom) return;
+    const dx = x - startX;
+    const dy = y - startY;
+    let nw = origW, nh = origH, nx = origX, ny = origY;
+    if (pos.includes('r')) nw = Math.max(40, origW + dx);
+    if (pos.includes('l')) { nw = Math.max(40, origW - dx); nx = origX + dx; }
+    if (pos.includes('b')) nh = Math.max(40, origH + dy);
+    if (pos.includes('t')) { nh = Math.max(40, origH - dy); ny = origY + dy; }
+    dom.style.width = nw + 'px';
+    dom.style.height = nh + 'px';
+    dom.style.left = nx + 'px';
+    dom.style.top = ny + 'px';
+    resizeState.newW = nw; resizeState.newH = nh;
+    resizeState.newX = nx; resizeState.newY = ny;
   }
 });
 
 document.addEventListener('mouseup', () => {
-  if (isDragging && currentDragEl) {
-    const dom = elementRefs[currentDragEl];
-    update(ref(db, `rooms/${roomId}/elements/${currentDragEl}`), {
-      x: parseInt(dom.style.left),
-      y: parseInt(dom.style.top)
-    }).catch(()=>{});
+  if (isDragging && currentDragId) {
+    const dom = elementRefs[currentDragId];
+    if (dom) {
+      update(ref(db, `rooms/${roomId}/elements/${currentDragId}`), {
+        x: parseInt(dom.style.left),
+        y: parseInt(dom.style.top)
+      }).catch(()=>{});
+    }
+  }
+  if (resizeState) {
+    const { id, newW, newH, newX, newY } = resizeState;
+    if (newW && newH) {
+      update(ref(db, `rooms/${roomId}/elements/${id}`), {
+        width: Math.round(newW),
+        height: Math.round(newH),
+        x: Math.round(newX),
+        y: Math.round(newY)
+      }).catch(()=>{});
+    }
   }
   isDragging = false;
-  currentDragEl = null;
+  currentDragId = null;
+  resizeState = null;
 });
 
-// ============ キャンバスクリックで新規作成 ============
-canvas.addEventListener('click', async e => {
-  if (e.target !== canvas && e.target.id !== 'canvas') {
-    if (!e.target.classList.contains('element') && e.target.id !== 'canvas') return;
-  }
-  if (mode === 'select') return;
-
+function startResize(e, id, pos) {
+  e.stopPropagation();
+  e.preventDefault();
+  const dom = elementRefs[id];
+  if (!dom) return;
   const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+  const bcr = dom.getBoundingClientRect();
+  resizeState = {
+    id, pos,
+    startX: e.clientX - rect.left,
+    startY: e.clientY - rect.top,
+    origW: bcr.width,
+    origH: bcr.height,
+    origX: parseInt(dom.style.left),
+    origY: parseInt(dom.style.top)
+  };
+}
 
-  const newId = push(ref(db, `rooms/${roomId}/elements`)).key;
+// ============ ダブルクリック編集 ============
+function onElementDblClick(e) {
+  const div = e.currentTarget;
+  const id = div.dataset.id;
+  const el = elements[id];
+  if (!el) return;
+  if (!['sticky','text','comment'].includes(el.type)) return;
+  if (div.contentEditable === 'true') return;
+
+  e.stopPropagation();
+  div.contentEditable = 'true';
+  div.focus();
+
+  // 全選択
+  const range = document.createRange();
+  range.selectNodeContents(div);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  const finish = () => {
+    div.contentEditable = 'false';
+    div.removeEventListener('blur', finish);
+    div.removeEventListener('keydown', onKey);
+    const newText = div.textContent.trim();
+    update(ref(db, `rooms/${roomId}/elements/${id}`), { content: newText }).catch(()=>{});
+  };
+  const onKey = (ev) => {
+    if (ev.key === 'Escape') { ev.preventDefault(); div.blur(); }
+    if (ev.key === 'Enter' && !ev.shiftKey && el.type !== 'sticky') { ev.preventDefault(); div.blur(); }
+  };
+  div.addEventListener('blur', finish);
+  div.addEventListener('keydown', onKey);
+}
+
+// ============ 要素追加 ============
+async function addElement(type, opts = {}) {
+  if (!roomId) return;
+  const centerX = canvas.clientWidth / 2 - 80 + (Math.random() - 0.5) * 200;
+  const centerY = canvas.clientHeight / 2 - 80 + (Math.random() - 0.5) * 200;
+  const x = opts.x ?? centerX;
+  const y = opts.y ?? centerY;
+
+  const base = {
+    type, x: Math.round(x), y: Math.round(y),
+    author: currentUser.displayName || currentUser.email
+  };
+
   let payload;
-  if (mode === 'text') {
-    const text = prompt('テキストを入力:', 'Hello');
-    if (!text) return;
-    payload = { type: 'text', x, y, content: text, color: '#000', author: currentUser.displayName || currentUser.email };
-  } else if (mode === 'rect') {
-    payload = { type: 'rect', x, y, color: colorForUid(currentUser.uid), author: currentUser.displayName || currentUser.email };
-  } else if (mode === 'circle') {
-    payload = { type: 'circle', x, y, color: colorForUid(currentUser.uid), author: currentUser.displayName || currentUser.email };
+  switch (type) {
+    case 'sticky':
+      payload = { ...base, color: pickColor(STICKY_COLORS), content: '' };
+      break;
+    case 'text':
+      payload = { ...base, color: '#222', content: 'テキスト' };
+      break;
+    case 'rect':
+      payload = { ...base, color: pickColor(SHAPE_COLORS), width: 160, height: 100 };
+      break;
+    case 'circle':
+      payload = { ...base, color: pickColor(SHAPE_COLORS), width: 120, height: 120 };
+      break;
+    case 'triangle':
+      payload = { ...base, color: pickColor(SHAPE_COLORS) };
+      break;
+    case 'arrow':
+      payload = { ...base, color: '#0d99ff' };
+      break;
+    case 'comment':
+      payload = { ...base, content: 'コメント' };
+      break;
+    case 'stamp': {
+      const stamp = prompt('絵文字を入力 (例: ⭐):', pickColor(STAMPS));
+      if (!stamp) return;
+      payload = { ...base, content: stamp };
+      break;
+    }
+    case 'image': {
+      const url = prompt('画像URLを入力:');
+      if (!url) return;
+      payload = { ...base, content: url };
+      break;
+    }
+    default:
+      return;
   }
-  await set(ref(db, `rooms/${roomId}/elements/${newId}`), payload);
+
+  const newRef = push(ref(db, `rooms/${roomId}/elements`));
+  await set(newRef, payload);
+}
+
+// ============ スラッシュメニュー ============
+let slashActiveIndex = 0;
+let slashFiltered = COMMANDS.slice();
+
+function showSlashMenu(x, y) {
+  slashActiveIndex = 0;
+  slashFiltered = COMMANDS.slice();
+  renderSlashMenu();
+  slashMenu.style.left = Math.min(x, window.innerWidth - 280) + 'px';
+  slashMenu.style.top  = Math.min(y, window.innerHeight - 400) + 'px';
+  slashMenu.classList.add('show');
+}
+
+function hideSlashMenu() {
+  slashMenu.classList.remove('show');
+}
+
+function renderSlashMenu(filter = '') {
+  const f = filter.toLowerCase();
+  slashFiltered = COMMANDS.filter(c =>
+    !f || c.name.includes(f) || c.cmd.includes(f) || c.desc.includes(f)
+  );
+  if (slashFiltered.length === 0) {
+    slashMenu.innerHTML = '<div style="padding:16px;color:#999;font-size:13px;">該当なし</div>';
+    return;
+  }
+  if (slashActiveIndex >= slashFiltered.length) slashActiveIndex = 0;
+
+  slashMenu.innerHTML = slashFiltered.map((c, i) => `
+    <div class="slash-item ${i === slashActiveIndex ? 'active' : ''}" data-index="${i}">
+      <div class="slash-icon">${c.icon}</div>
+      <div class="slash-info">
+        <div class="si-name">${c.name}</div>
+        <div class="si-desc">${c.desc}</div>
+      </div>
+      <div class="si-cmd">${c.cmd}</div>
+    </div>
+  `).join('');
+
+  slashMenu.querySelectorAll('.slash-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const idx = parseInt(item.dataset.index);
+      executeCommand(slashFiltered[idx].id);
+    });
+    item.addEventListener('mouseenter', () => {
+      slashActiveIndex = parseInt(item.dataset.index);
+      slashMenu.querySelectorAll('.slash-item').forEach(x => x.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+}
+
+async function executeCommand(id) {
+  hideSlashMenu();
+  switch (id) {
+    case 'sticky':   await addElement('sticky'); showHint('📝 付箋を追加。ダブルクリックで編集'); break;
+    case 'text':     await addElement('text');   showHint('🅰 ダブルクリックで編集'); break;
+    case 'rect':     await addElement('rect'); break;
+    case 'circle':   await addElement('circle'); break;
+    case 'triangle': await addElement('triangle'); break;
+    case 'arrow':    await addElement('arrow'); break;
+    case 'comment':  await addElement('comment'); showHint('💬 ダブルクリックで編集'); break;
+    case 'stamp':    await addElement('stamp'); break;
+    case 'image':    await addElement('image'); break;
+    case 'chat':     toggleChat(true); break;
+    case 'clear':
+      if (confirm('全要素を削除しますか？')) remove(ref(db, `rooms/${roomId}/elements`));
+      break;
+  }
+}
+
+function showHint(msg) {
+  hintEl.textContent = msg;
+  hintEl.classList.add('show');
+  clearTimeout(window._hintTimer);
+  window._hintTimer = setTimeout(() => hintEl.classList.remove('show'), 2000);
+}
+
+// ============ キーボード処理 ============
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  const inEditable = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
+
+  // スラッシュメニューが開いているとき
+  if (slashMenu.classList.contains('show')) {
+    if (e.key === 'Escape') { e.preventDefault(); hideSlashMenu(); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      slashActiveIndex = (slashActiveIndex + 1) % slashFiltered.length;
+      renderSlashMenu(canvas.dataset.slashFilter || '');
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      slashActiveIndex = (slashActiveIndex - 1 + slashFiltered.length) % slashFiltered.length;
+      renderSlashMenu(canvas.dataset.slashFilter || '');
+      return;
+    }
+    if (e.key === 'Enter' && !inEditable) {
+      e.preventDefault();
+      executeCommand(slashFiltered[slashActiveIndex].id);
+      return;
+    }
+  }
+
+  if (inEditable) return;
+
+  // Delete で選択中の要素を削除
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+    e.preventDefault();
+    remove(ref(db, `rooms/${roomId}/elements/${selectedId}`));
+    selectedId = null;
+    return;
+  }
 });
 
-// ============ ツールバー操作 ============
-document.querySelectorAll('.mode').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    mode = btn.dataset.mode;
-    canvas.className = 'mode-' + (mode === 'rect' || mode === 'circle' ? 'select' : mode);
+// スラッシュキー
+document.addEventListener('keypress', (e) => {
+  if (e.key !== '/') return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+  e.preventDefault();
+  showSlashMenu(window.innerWidth / 2 - 140, window.innerHeight / 2 - 150);
+});
+
+// キャンバスクリックで選択解除 & スラッシュメニュー閉じる
+canvas.addEventListener('click', (e) => {
+  if (e.target === canvas) {
+    document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
+    selectedId = null;
+    hideSlashMenu();
+  }
+});
+
+// ============ ユーザー表示 ============
+function renderUsers(cursorsData) {
+  usersEl.innerHTML = '';
+  Object.entries(cursorsData).forEach(([uid, cur]) => {
+    const info = allUsers[uid] || {};
+    const dot = document.createElement('div');
+    dot.className = 'user-dot';
+    if (uid === currentUser.uid) dot.classList.add('me');
+    if (isAdminEmail(info.email) || isAdminUid(uid)) dot.classList.add('admin');
+
+    if (info.photo) {
+      dot.innerHTML = `<img src="${info.photo}" alt="">`;
+    } else {
+      dot.style.background = cur.color || colorForUid(uid);
+      dot.textContent = (cur.name || '?').slice(-2);
+    }
+    dot.title = `${cur.name || uid}${(isAdminEmail(info.email) || isAdminUid(uid)) ? ' 👑' : ''}`;
+    usersEl.appendChild(dot);
   });
+}
+
+// ============ チャット ============
+function toggleChat(force) {
+  if (force === true) chatPanel.classList.add('show');
+  else if (force === false) chatPanel.classList.remove('show');
+  else chatPanel.classList.toggle('show');
+  if (chatPanel.classList.contains('show')) {
+    setTimeout(() => chatInput.focus(), 50);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+}
+
+document.getElementById('chatBtn').addEventListener('click', () => toggleChat());
+document.getElementById('chatClose').addEventListener('click', () => toggleChat(false));
+
+document.getElementById('chatSend').addEventListener('click', sendChat);
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); sendChat(); }
+});
+
+async function sendChat() {
+  const text = chatInput.value.trim();
+  if (!text || !roomId) return;
+  chatInput.value = '';
+  const msgRef = push(ref(db, `rooms/${roomId}/chats`));
+  await set(msgRef, {
+    text,
+    author: currentUser.displayName || currentUser.email.split('@')[0],
+    email: currentUser.email,
+    photo: currentUser.photoURL || '',
+    timestamp: Date.now()
+  });
+}
+
+function renderChats(data) {
+  const msgs = Object.entries(data)
+    .map(([id, m]) => ({ id, ...m }))
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+  chatMessages.innerHTML = '';
+  msgs.forEach(m => {
+    const div = document.createElement('div');
+    const mine = m.email === currentUser.email;
+    div.className = 'chat-msg' + (mine ? ' mine' : '');
+    const time = new Date(m.timestamp || 0).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    div.innerHTML = `
+      <div class="cm-author">${escapeHtml(m.author || '')}</div>
+      <div class="cm-text">${escapeHtml(m.text || '')}</div>
+      <div class="cm-time">${time}</div>
+    `;
+    chatMessages.appendChild(div);
+  });
+
+  // 一番下までスクロール
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// ============ 管理者パネル ============
+document.getElementById('slashBtn').addEventListener('click', (e) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  showSlashMenu(rect.left, rect.bottom + 6);
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!roomId) return;
+  if (!confirm('全要素を削除しますか？')) return;
+  remove(ref(db, `rooms/${roomId}/elements`));
 });
 
 document.getElementById('joinBtn').addEventListener('click', () => {
@@ -884,110 +1329,6 @@ document.getElementById('joinBtn').addEventListener('click', () => {
   joinRoom(id);
 });
 
-document.getElementById('clearBtn').addEventListener('click', () => {
-  if (!roomId) return;
-  if (!confirm('全ての要素を削除しますか？')) return;
-  remove(ref(db, `rooms/${roomId}/elements`));
-});
-
-document.getElementById('runBtn').addEventListener('click', () => updatePreview(true));
-
-// ============ コードタブ ============
-document.querySelectorAll('.code-tabs button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.code-tabs button').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.code-editor').forEach(e => e.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelector(`[data-editor="${btn.dataset.tab}"]`).classList.add('active');
-  });
-});
-
-// ============ デバウンス ============
-function debounce(fn, ms) {
-  let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-}
-const pushHTML = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/html`), v).catch(()=>{}); }, 500);
-const pushCSS  = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/css`), v).catch(()=>{}); }, 500);
-const pushJS   = debounce(v => { if (roomId) set(ref(db, `rooms/${roomId}/code/js`), v).catch(()=>{}); }, 500);
-
-htmlCode.addEventListener('input', () => { currentHTML = htmlCode.value; pushHTML(currentHTML); updatePreview(); });
-cssCode.addEventListener('input',  () => { currentCSS  = cssCode.value;  pushCSS(currentCSS);  updatePreview(); });
-jsCode.addEventListener('input',   () => { currentJS   = jsCode.value;   pushJS(currentJS);   updatePreview(); });
-
-// ============ プレビュー更新 ============
-let previewTimer = null;
-let lastPreviewKey = '';
-
-function updatePreview(force = false) {
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(() => {
-    const key = currentHTML + '||' + currentCSS + '||' + currentJS;
-    if (!force && key === lastPreviewKey) return;
-    lastPreviewKey = key;
-
-    const bridge = `
-      <script>
-        (function(){
-          const send = (type, msg) => {
-            try { parent.postMessage({ __preview: true, type, msg: String(msg) }, '*'); } catch(e){}
-          };
-          ['log','warn','error','info'].forEach(k => {
-            const orig = console[k];
-            console[k] = (...args) => {
-              try { orig.apply(console, args); } catch(e){}
-              send(k, args.map(a => {
-                try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
-                catch(e){ return '[object]'; }
-              }).join(' '));
-            };
-          });
-          window.addEventListener('error', e => send('error', e.message + ' @' + e.lineno));
-        })();
-      <\/script>
-    `;
-
-    const wrappedJS = `
-      try {
-        ${currentJS}
-      } catch (err) {
-        console.error('JSエラー:', err.message);
-      }
-    `;
-
-    const doc = `<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8">
-${bridge}
-<style>
-  body { margin:0; font-family: -apple-system, sans-serif; padding: 12px; background: #fff; color: #222; }
-  ${currentCSS}
-</style>
-</head>
-<body>
-${currentHTML}
-<script>
-  (function(){
-    ${wrappedJS}
-  })();
-<\/script>
-</body></html>`;
-
-    preview.srcdoc = doc;
-
-    runBadge.textContent = '▶ 実行 ' + new Date().toLocaleTimeString();
-    runBadge.style.background = '#27ae60';
-    setTimeout(() => { runBadge.style.background = '#0d99ff'; runBadge.textContent = 'JS実行中'; }, 800);
-  }, 350);
-}
-
-window.addEventListener('message', e => {
-  if (e.data && e.data.__preview) {
-    console.log(`[preview:${e.data.type}]`, e.data.msg);
-  }
-});
-
-// ============ 管理者パネル ============
 adminBtn.addEventListener('click', () => {
   adminPanel.classList.toggle('show');
   if (adminPanel.classList.contains('show')) {
@@ -1012,10 +1353,9 @@ function renderAdminPanel() {
     apBody.innerHTML = '<div style="color:#999;font-size:13px;">ユーザーがいません</div>';
     return;
   }
-
   users.sort((a, b) => (b[1].lastSeen || 0) - (a[1].lastSeen || 0));
-
   apBody.innerHTML = '';
+
   users.forEach(([uid, u]) => {
     const isBanned = !!bannedUsers[uid];
     const isSelf = uid === currentUser.uid;
@@ -1049,7 +1389,7 @@ function renderAdminPanel() {
           if (!confirm(`${u.email} のBANを解除しますか？`)) return;
           await remove(ref(db, `banned/${uid}`));
         } else {
-          if (!confirm(`${u.email} をBANしますか？\n\n対象ユーザーの画面は about:blank になります。`)) return;
+          if (!confirm(`${u.email} をBANしますか？`)) return;
           await set(ref(db, `banned/${uid}`), {
             email: u.email || '',
             bannedAt: Date.now(),
@@ -1059,7 +1399,6 @@ function renderAdminPanel() {
       });
       row.appendChild(btn);
     }
-
     apBody.appendChild(row);
   });
 }
@@ -1070,46 +1409,18 @@ function escapeHtml(s) {
   }[c]));
 }
 
-// ============ 初期コード ============
-const INITIAL_HTML = `<h1>Hello World 👋</h1>
-<p>右のパネルで HTML / CSS / JS を編集できます。</p>
-<button id="btn">クリックしてね</button>
-<p id="count">クリック数: 0</p>`;
-
-const INITIAL_CSS = `h1 { color: #0d99ff; margin-top: 0; }
-button {
-  background: #0d99ff; color: white; border: none;
-  padding: 8px 16px; border-radius: 4px; cursor: pointer;
-  font-size: 14px;
-}
-button:hover { background: #0b7fd9; }
-button:active { transform: scale(0.96); }`;
-
-const INITIAL_JS = `let count = 0;
-const btn = document.getElementById('btn');
-const counter = document.getElementById('count');
-
-btn.addEventListener('click', () => {
-  count++;
-  counter.textContent = 'クリック数: ' + count;
-  console.log('クリックされました:', count);
+// ============ ショートカット ============
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+  if (e.key === 'c' || e.key === 'C') {
+    e.preventDefault();
+    toggleChat();
+  }
 });
 
-console.log('プレビュー初期化完了');`;
-
-htmlCode.value = INITIAL_HTML;
-cssCode.value = INITIAL_CSS;
-jsCode.value = INITIAL_JS;
-currentHTML = INITIAL_HTML;
-currentCSS = INITIAL_CSS;
-currentJS = INITIAL_JS;
-
-window.addEventListener('beforeunload', () => {
-  if (myCursorRef) { try { remove(myCursorRef); } catch(e){} }
-});
-
-console.log('%c🎨 FigmaDG CollabApp', 'color:#0d99ff;font-size:20px;font-weight:bold');
-console.log('ログイン後、部屋IDを共有して他のユーザーとコラボできます。');
+console.log('%c🎨 FigmaDG', 'color:#0d99ff;font-size:20px;font-weight:bold');
+console.log('/ キーでコマンドメニュー、C キーでチャット');
 </script>
 </body>
 </html>
