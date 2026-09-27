@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FigmaDG</title>
- <link id="faviconLink" rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADNklEQVR4AbSXXUgUURTH/3faPtR2SxFT1xJBkQhCogiJEvPBECqhngp96AOCPqnopXxIxAoKCqJeDAKhHrWnIKgn6aEy+sClqAxztS1Bl13DLHdu9+w6OtOeO7vb5jBn5t5z/uec39xhdmYN0zSlaTpN2jczJiPNFTKyaw1r8vQBydqJFnuV+Ng0nX1M05QGXLbo7nJEmysAM+ai0oQ8i4EzB4GTrRpBwq0FoOYJSZZHC0RThgWINBZo5Fm4pWSTWQCxzMeKs3J+C7HpLADA07IV0nTK25dZJQsgY79YcTZOcfEGm84C+HqDrHghnCwAPIv+by8htPV4ACX3PhgCmRpmt1+7A1zt0tbQAlgZBNG7dAg9ebyBGsyaVOeCHV0oburCzaOqqZpbdXTnlADd+1SqB6BF5AyzGz03ZY8lclRFuoGXPgPlT8g7K9CclJyPdO8H4s35sMPrV42pucOpJjOqP8Veh9VEs/MAKjHdn4LVqrmm9py7qZ8Kzk0dAxag95RD4zoxXaOpgyxAdCx1YqaKPc/5VWABMi2ejt6r3s6cjgWorOek2fnu1tAzlFyDBag9nCzUef7hU8VRigUgheb1TSGHhRr4K7OLRlw0WoDW+0DLPXsZ/ZgakP2tGJ8BOL9dpwWwRARRfw7wGCZrlo7O1Gzd8sTXxPB2ganG1KtjUKLOHk4MIO9VB6rRgUNnO1mzcoVINHu0WWBULbmRmFph7VkLQI33DvVoE7mAEPNdvfml8K7wo6i4EqtKqlBUWgXfSj98BX5HKgsw/HPcIUpn0t7eDvXxb5MK5OTm4nvoI4JfAthSuxFCJLdL9qgSa9/dUsfM9ra2NggxvwJCChQW5seh+vqe4vixIzDSBeB/NFMDOVcACLx9Foeqq9uK/hcvIYWqrMDsldgVmL8OuzTzcV3DToTDYRiGgc4r1xGjf1gEYSvFAhQZS2wS/VBA6IMqEhgIYMOmbSgpq8ZM7Ddsd0hFEzsLMLhePfiJuOtxsua8Nh4JBzEW+oTBD2/wNfge0YlRRMZH4mZPYgFI8KPmAtyuz6055adrWgAqMKkgCGQqNh2HmVb3kBqTT8Q9pHK3VNE/AAAA///HoRc2AAAABklEQVQDANe2R681Yw9XAAAAAElFTkSuQmCC">
+<title>FigmaDG - FigJam風</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -162,6 +161,7 @@
   .element.selected .delete-btn { display: none !important; }
   .element .script-badge { display: none !important; }
 
+  /* ===== 要素の名前ラベル ===== */
   .element .name-label {
     position: absolute;
     top: -20px; left: 0;
@@ -185,17 +185,20 @@
   .element.locked .name-label { background: #f39c12; }
   .element.group-selected .name-label { background: #f39c12; }
 
-  /* ===== グループインジケータ ===== */
+  /* ===== グループインジケータ（破線枠なし） ===== */
   .group-indicator {
     position: absolute;
-    border: 2px dashed #f39c12;
-    border-radius: 6px;
+    border: none !important;
+    background: transparent !important;
     pointer-events: none;
     z-index: 9500;
+    outline: none !important;
+    box-shadow: none !important;
   }
+  /* グループタグのみ表示 */
   .group-indicator .group-tag {
     position: absolute;
-    top: -22px; left: 0;
+    top: 0; left: 0;
     background: #f39c12; color: white;
     padding: 2px 8px; border-radius: 4px;
     font-size: 11px; font-weight: 600;
@@ -205,18 +208,21 @@
     max-width: 250px;
     overflow: hidden;
     text-overflow: ellipsis;
+    z-index: 9501;
   }
   .group-indicator .group-tag:hover { background: #e67e22; }
+
+  /* hideName: タグも非表示 */
   .group-indicator.hide-name .group-tag { display: none; }
   .group-indicator.hide-name.selected .group-tag {
     display: block;
     opacity: 0.5;
   }
-  .group-indicator.selected {
-    border-color: #0d99ff;
-    border-width: 3px;
-    background: rgba(13,153,255,0.05);
-  }
+
+  /* hidden-group: 完全非表示（全隠す時） */
+  .group-indicator.hidden-group { display: none !important; }
+
+  /* 選択時の強調（枠は出さずタグ色だけ変更） */
   .group-indicator.selected .group-tag { background: #0d99ff; }
 
   .el-sticky {
@@ -1972,6 +1978,14 @@ function updateGroupIndicatorsForMembers(memberIds) {
     const g = groups[gid];
     const ind = groupIndicators[gid];
     if (!g || !ind) return;
+    // 全員非表示なら隠す
+    const visibleMembers = g.members.filter(mid => elements[mid] && elements[mid].visible !== false);
+    if (visibleMembers.length === 0) {
+      ind.classList.add('hidden-group');
+      return;
+    } else {
+      ind.classList.remove('hidden-group');
+    }
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     let validCount = 0;
     g.members.forEach(mid => {
@@ -2084,7 +2098,6 @@ document.addEventListener('mouseup', async (e) => {
   resizeState = null;
 });
 
-// 要素DOM
 function createElementDOM(id, el) {
   const div = document.createElement('div');
   div.className = 'element';
@@ -2371,15 +2384,21 @@ function onElementDblClick(e) {
   div.addEventListener('keydown', onKey);
 }
 
-// ===== グループ表示（全メンバー非表示の時は枠も隠す） =====
+// ============ グループ表示（破線枠なし + 全隠す対応） ============
 function refreshAllGroupIndicators() {
   Object.values(groupIndicators).forEach(d => d.remove());
   groupIndicators = {};
   Object.entries(groups).forEach(([gid, g]) => {
     if (!g.members || g.members.length === 0) return;
+
+    // 表示中のメンバーがいるか確認
+    const visibleMembers = g.members.filter(mid => {
+      const el = elements[mid];
+      return el && el.visible !== false;
+    });
+
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     let validCount = 0;
-    let visibleCount = 0;
     g.members.forEach(mid => {
       const el = elements[mid];
       if (!el) return;
@@ -2389,22 +2408,23 @@ function refreshAllGroupIndicators() {
       maxX = Math.max(maxX, el.x + size.w);
       maxY = Math.max(maxY, el.y + size.h);
       validCount++;
-      if (el.visible !== false) visibleCount++;
     });
     if (validCount === 0) return;
-    // 全メンバー非表示 & 未選択なら枠も非表示
-    if (visibleCount === 0 && selectedGroupId !== gid) return;
 
     const pad = 8;
     const ind = document.createElement('div');
     ind.className = 'group-indicator';
     if (selectedGroupId === gid) ind.classList.add('selected');
     if (g.hideName) ind.classList.add('hide-name');
+    // 全メンバーが非表示ならインジケータも隠す
+    if (visibleMembers.length === 0) ind.classList.add('hidden-group');
+
     ind.dataset.groupId = gid;
     ind.style.left = (minX - pad) + 'px';
     ind.style.top = (minY - pad) + 'px';
     ind.style.width = (maxX - minX + pad * 2) + 'px';
     ind.style.height = (maxY - minY + pad * 2) + 'px';
+
     const tag = document.createElement('div');
     tag.className = 'group-tag';
     tag.textContent = `📦 ${g.name || 'グループ'}${g.action ? ' 🎯' : ''}`;
@@ -2471,7 +2491,6 @@ function showGroupPropPanel(gid) {
   gName.appendChild(nameInput);
   propPanel.appendChild(gName);
 
-  // グループ名の表示/非表示
   const isGroupOwner = g.authorUid === currentUser.uid || isAdmin;
   if (isGroupOwner) {
     const gNameShow = document.createElement('div');
@@ -2479,7 +2498,7 @@ function showGroupPropPanel(gid) {
     const nameShowBtn = document.createElement('button');
     nameShowBtn.className = 'name-toggle-btn';
     nameShowBtn.textContent = g.hideName ? '👁 名前を表示' : '🙈 名前を隠す';
-    nameShowBtn.title = 'グループの名前ラベルを表示/非表示（枠は残ります）';
+    nameShowBtn.title = 'グループの名前ラベルを表示/非表示';
     nameShowBtn.addEventListener('click', async () => {
       const newVal = !g.hideName;
       pushUndo({
@@ -2506,36 +2525,32 @@ function showGroupPropPanel(gid) {
   gAction.appendChild(actBtn);
   propPanel.appendChild(gAction);
 
-  // 全表示 / 全隠す
+  // ===== 全表示 / 全隠す（破線枠も含めて制御） =====
   const gVis = document.createElement('div');
   gVis.className = 'pp-group';
-
   const visBtn = document.createElement('button');
   visBtn.textContent = '👁 全表示';
+  visBtn.title = '全メンバーを表示';
   visBtn.addEventListener('click', async () => {
     for (const mid of (g.members || [])) {
-      await update(ref(db, `rooms/${roomId}/elements/${mid}`), { visible: true });
+      await update(ref(db, `rooms/${roomId}/elements/${mid}`), { visible: true, opacity: 1 });
     }
+    // 破線枠も復活
+    const ind = groupIndicators[gid];
+    if (ind) ind.classList.remove('hidden-group');
     setTimeout(() => refreshAllGroupIndicators(), 100);
-    showHint('👁 グループ全体を表示');
   });
-
   const hideBtn = document.createElement('button');
   hideBtn.textContent = '🙈 全隠す';
-  hideBtn.style.background = '#c0392b';
-  hideBtn.style.color = 'white';
-  hideBtn.style.borderColor = '#c0392b';
+  hideBtn.title = '全メンバーと破線枠を非表示';
   hideBtn.addEventListener('click', async () => {
     for (const mid of (g.members || [])) {
       await update(ref(db, `rooms/${roomId}/elements/${mid}`), { visible: false });
     }
-    // グループ選択を解除 → 枠も消える
-    clearGroupSelection();
-    propPanel.classList.remove('show');
-    setTimeout(() => refreshAllGroupIndicators(), 100);
-    showHint('🙈 グループ全体を非表示');
+    // グループタグ・破線枠も即座に非表示
+    const ind = groupIndicators[gid];
+    if (ind) ind.classList.add('hidden-group');
   });
-
   gVis.appendChild(visBtn);
   gVis.appendChild(hideBtn);
   propPanel.appendChild(gVis);
@@ -2625,7 +2640,6 @@ function showPropPanel() {
     delBtn.style.color = 'white';
     delBtn.style.borderColor = '#c0392b';
     delBtn.style.fontWeight = '600';
-    delBtn.title = 'この要素を削除';
     delBtn.addEventListener('click', async () => {
       if (!confirm('削除しますか？')) return;
       pushUndo({ type: 'delete', items: [{ id, data: JSON.parse(JSON.stringify(el)) }] });
@@ -2646,7 +2660,6 @@ function showPropPanel() {
     wInput.type = 'number';
     wInput.min = 30; wInput.max = 2000;
     wInput.value = Math.round(sizeInfo.w);
-    wInput.title = '幅';
     wInput.style.width = '60px';
     let beforeW = wInput.value;
     wInput.addEventListener('focus', () => { beforeW = wInput.value; });
@@ -2660,7 +2673,6 @@ function showPropPanel() {
     hInput.type = 'number';
     hInput.min = 30; hInput.max = 2000;
     hInput.value = Math.round(sizeInfo.h);
-    hInput.title = '高さ';
     hInput.style.width = '60px';
     let beforeH = hInput.value;
     hInput.addEventListener('focus', () => { beforeH = hInput.value; });
@@ -2778,7 +2790,6 @@ function showPropPanel() {
     gLayer.className = 'pp-group';
     gLayer.innerHTML = `<label>配置</label>`;
     const layerSelect = document.createElement('select');
-    layerSelect.title = 'レイヤー配置';
     layerSelect.innerHTML = `
       <option value="">— 選択 —</option>
       <option value="front">最前面へ</option>
@@ -2898,7 +2909,6 @@ function showPropPanel() {
     gDup.className = 'pp-group';
     const dupBtn = document.createElement('button');
     dupBtn.textContent = '⧉';
-    dupBtn.title = '複製';
     dupBtn.addEventListener('click', async () => {
       const newId = newElemId();
       const copy = JSON.parse(JSON.stringify(el));
@@ -3381,7 +3391,6 @@ async function executeAction(a, selfId, group) {
   }
 }
 
-// コードエディタ
 function openCodeEditor(id) {
   editingCodeId = id;
   const el = elements[id];
@@ -3568,7 +3577,6 @@ function updateElementDOM(id, el) {
   if (el.italic !== undefined) dom.style.fontStyle = el.italic ? 'italic' : 'normal';
 }
 
-// 要素追加
 async function addElement(type, opts = {}) {
   if (!roomId) return;
   const centerX = canvasWrap.scrollLeft + canvasWrap.clientWidth / 2;
@@ -3648,7 +3656,6 @@ async function addElement(type, opts = {}) {
   showHint(`✨ ${label} を追加`);
 }
 
-// スラッシュメニュー
 let slashActiveIndex = 0;
 let slashFiltered = COMMANDS.slice();
 function showSlashMenu(x, y) {
@@ -3769,7 +3776,6 @@ document.getElementById('logClear').addEventListener('click', () => {
 });
 document.getElementById('logBtn').addEventListener('click', () => scriptLog.classList.toggle('show'));
 
-// キーボード
 document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase();
   const inEditable = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
@@ -3891,7 +3897,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// 吹き出し
 function openMyBubble() {
   const x = window._lastMouseX || window.innerWidth / 2;
   const y = window._lastMouseY || window.innerHeight / 2;
@@ -3943,7 +3948,6 @@ document.addEventListener('mousemove', (e) => {
   window._lastMouseY = e.clientY;
 });
 
-// 画像ペースト
 document.addEventListener('paste', async (e) => {
   if (!roomId || !currentUser) return;
   if (codeModal.classList.contains('show') || visualModal.classList.contains('show') || settingsModal.classList.contains('show')) return;
@@ -4079,7 +4083,6 @@ function renderChats(data) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// 管理者
 document.getElementById('slashBtn').addEventListener('click', (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
   showSlashMenu(rect.left, rect.bottom + 6);
