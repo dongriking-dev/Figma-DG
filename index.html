@@ -3,15 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FigmaDG - FigJam風</title>
+<title>FigmaDG - FigJam風 + Script</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    height: 100vh;
-    display: flex; flex-direction: column;
-    background: #1e1e1e; color: #ddd;
-    overflow: hidden;
+    height: 100vh; display: flex; flex-direction: column;
+    background: #1e1e1e; color: #ddd; overflow: hidden;
   }
 
   /* ===== ログイン ===== */
@@ -51,37 +49,48 @@
   }
   #toolbar button.active { background: #0d99ff; border-color: #0d99ff; }
   #toolbar button:hover { background: #4a4a4a; }
-  #toolbar input { cursor: text; }
 
   #main { flex: 1; display: flex; overflow: hidden; position: relative; }
 
   /* ===== キャンバス ===== */
   #canvas {
     flex: 1; position: relative;
-    background: #f7f7f9;
-    overflow: hidden;
+    background: #f7f7f9; overflow: hidden;
     background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
     background-size: 24px 24px;
   }
-  #canvas.panning { cursor: grabbing; }
-  #canvas.panning * { cursor: grabbing !important; }
 
-  /* ===== 要素共通 ===== */
+  /* ===== 要素 ===== */
   .element {
-    position: absolute;
-    user-select: none;
-    cursor: move;
+    position: absolute; user-select: none; cursor: move;
     transition: box-shadow 0.15s;
   }
   .element:hover { box-shadow: 0 0 0 2px rgba(13,153,255,0.3); }
-  .element.selected {
-    box-shadow: 0 0 0 3px #0d99ff, 0 4px 12px rgba(0,0,0,0.15);
+  .element.selected { box-shadow: 0 0 0 3px #0d99ff, 0 4px 12px rgba(0,0,0,0.15); }
+
+  /* スクリプト要素はiframeで表示 */
+  .element.has-script {
+    padding: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
   }
+  .element.has-script .script-frame {
+    width: 100%; height: 100%;
+    border: none;
+    display: block;
+    background: transparent;
+    pointer-events: auto;
+  }
+  .element.has-script .script-wrapper {
+    width: 100%; height: 100%;
+    display: block;
+    background: transparent;
+  }
+
   .element .resize-handle {
     position: absolute; width: 10px; height: 10px;
     background: white; border: 2px solid #0d99ff;
-    border-radius: 50%; display: none;
-    z-index: 5;
+    border-radius: 50%; display: none; z-index: 5;
   }
   .element.selected .resize-handle { display: block; }
   .resize-handle.br { right: -5px; bottom: -5px; cursor: se-resize; }
@@ -100,14 +109,24 @@
   .element.selected .delete-btn { display: flex; }
   .element .delete-btn:hover { background: #e74c3c; }
 
+  /* スクリプト有効マーク */
+  .element .script-badge {
+    position: absolute; top: -10px; left: -10px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #f39c12; color: white;
+    font-size: 11px; font-weight: bold;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid white; z-index: 7;
+    pointer-events: none;
+  }
+
   /* ===== 要素タイプ ===== */
   .el-sticky {
     width: 180px; height: 180px;
     padding: 12px; border-radius: 3px;
     box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
     font-size: 14px; line-height: 1.4;
-    overflow: hidden; word-wrap: break-word;
-    outline: none;
+    overflow: hidden; word-wrap: break-word; outline: none;
   }
   .el-rect { width: 160px; height: 100px; border-radius: 6px; }
   .el-circle { width: 120px; height: 120px; border-radius: 50%; }
@@ -116,7 +135,6 @@
     border-left: 70px solid transparent;
     border-right: 70px solid transparent;
     border-bottom: 120px solid #0d99ff;
-    background: transparent !important;
   }
   .el-arrow {
     width: 180px; height: 6px;
@@ -129,32 +147,22 @@
     border-left-color: inherit;
   }
   .el-text {
-    padding: 4px 6px;
-    color: #222; outline: none;
-    min-width: 40px;
-    border-radius: 4px;
-    font-size: 18px;
-    line-height: 1.3;
-    white-space: pre-wrap;
+    padding: 4px 6px; color: #222; outline: none;
+    min-width: 40px; border-radius: 4px;
+    font-size: 18px; line-height: 1.3; white-space: pre-wrap;
   }
   .el-comment {
-    width: 200px;
-    background: #fff;
-    border: 2px solid #f39c12;
-    border-radius: 10px;
-    padding: 10px;
-    font-size: 13px;
-    color: #222;
+    width: 200px; background: #fff;
+    border: 2px solid #f39c12; border-radius: 10px;
+    padding: 10px; font-size: 13px; color: #222;
     box-shadow: 2px 4px 10px rgba(0,0,0,0.15);
   }
   .el-comment::before {
-    content: '';
-    position: absolute; bottom: -10px; left: 20px;
-    border: 8px solid transparent;
-    border-top-color: #f39c12;
+    content: ''; position: absolute; bottom: -10px; left: 20px;
+    border: 8px solid transparent; border-top-color: #f39c12;
   }
-  .el-image img { display: block; max-width: 100%; border-radius: 6px; }
   .el-image { max-width: 600px; }
+  .el-image img { display: block; max-width: 100%; border-radius: 6px; }
   .el-stamp {
     font-size: 60px; line-height: 1;
     filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2));
@@ -173,34 +181,23 @@
     font-size: 11px; color: white; white-space: nowrap; font-weight: 500;
   }
 
-  /* ===== カーソルチャット吹き出し ===== */
+  /* ===== カーソル吹き出し ===== */
   .cursor-bubble {
-    position: absolute;
-    pointer-events: auto;
-    z-index: 9998;
-    transform-origin: top left;
-    transition: transform 0.08s linear;
+    position: absolute; pointer-events: none; z-index: 9998;
+    transform-origin: top left; transition: transform 0.08s linear;
   }
   .cursor-bubble .bubble {
-    margin-left: 22px;
-    margin-top: 10px;
-    background: white;
-    color: #222;
-    border-radius: 16px;
-    padding: 8px 14px;
-    font-size: 13px;
-    font-weight: 500;
+    margin-left: 22px; margin-top: 10px;
+    color: #222; border-radius: 16px;
+    padding: 8px 14px; font-size: 13px; font-weight: 500;
     box-shadow: 0 4px 14px rgba(0,0,0,0.2);
-    max-width: 240px;
-    word-wrap: break-word;
-    position: relative;
-    animation: popIn 0.2s ease-out;
+    max-width: 240px; word-wrap: break-word;
+    position: relative; animation: popIn 0.2s ease-out;
   }
   .cursor-bubble .bubble::before {
-    content: '';
-    position: absolute; left: -6px; top: 12px;
+    content: ''; position: absolute; left: -6px; top: 12px;
     border: 6px solid transparent;
-    border-right-color: white;
+    border-right-color: inherit;
   }
   @keyframes popIn {
     from { opacity: 0; transform: scale(0.8) translateY(-4px); }
@@ -209,35 +206,26 @@
 
   /* ===== 自分の入力吹き出し ===== */
   #myBubble {
-    position: fixed;
-    z-index: 10001;
-    display: none;
-    transform-origin: top left;
-    pointer-events: auto;
+    position: fixed; z-index: 10001; display: none;
+    transform-origin: top left; pointer-events: auto;
   }
   #myBubble.show { display: block; }
   #myBubble .bubble-wrap {
-    margin-left: 22px;
-    margin-top: 10px;
-    background: #0d99ff;
-    border-radius: 16px;
-    padding: 6px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    margin-left: 22px; margin-top: 10px;
+    background: #0d99ff; border-radius: 16px;
+    padding: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.3);
     display: flex; align-items: center; gap: 6px;
-    position: relative;
-    min-width: 220px;
+    position: relative; min-width: 220px;
   }
   #myBubble .bubble-wrap::before {
-    content: '';
-    position: absolute; left: -6px; top: 12px;
+    content: ''; position: absolute; left: -6px; top: 12px;
     border: 6px solid transparent;
     border-right-color: #0d99ff;
   }
   #myBubble input {
     background: transparent; border: none;
     color: white; font-size: 13px; font-weight: 500;
-    outline: none; flex: 1; padding: 4px 8px;
-    min-width: 100px;
+    outline: none; flex: 1; padding: 4px 8px; min-width: 100px;
   }
   #myBubble input::placeholder { color: rgba(255,255,255,0.6); }
   #myBubble button {
@@ -246,36 +234,28 @@
     font-size: 12px; font-weight: 600; cursor: pointer;
   }
   #myBubble button.close {
-    background: rgba(255,255,255,0.2); color: white;
-    padding: 4px 8px;
+    background: rgba(255,255,255,0.2); color: white; padding: 4px 8px;
   }
 
   /* ===== プロパティパネル ===== */
   #propPanel {
-    position: fixed;
-    bottom: 20px; left: 50%;
+    position: fixed; bottom: 20px; left: 50%;
     transform: translateX(-50%);
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 10px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-    padding: 10px 14px;
-    display: none;
-    gap: 10px;
-    align-items: center;
-    z-index: 55000;
-    flex-wrap: wrap;
-    max-width: 90vw;
+    background: #2a2a2a; border: 1px solid #444;
+    border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    padding: 10px 14px; display: none; gap: 10px;
+    align-items: center; z-index: 55000;
+    flex-wrap: wrap; max-width: 95vw;
   }
   #propPanel.show { display: flex; }
   #propPanel .pp-group {
     display: flex; align-items: center; gap: 6px;
-    padding: 0 8px;
-    border-right: 1px solid #444;
+    padding: 0 8px; border-right: 1px solid #444;
   }
   #propPanel .pp-group:last-child { border-right: none; }
   #propPanel label {
-    font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.5px;
+    font-size: 10px; color: #999;
+    text-transform: uppercase; letter-spacing: 0.5px;
   }
   #propPanel input[type="color"] {
     width: 32px; height: 32px; border: 2px solid #555;
@@ -286,6 +266,11 @@
     border: 1px solid #555; border-radius: 4px;
     padding: 5px 8px; font-size: 13px;
   }
+  #propPanel input[type="text"] {
+    background: #1a1a1a; color: #eee;
+    border: 1px solid #555; border-radius: 4px;
+    padding: 5px 8px; font-size: 12px;
+  }
   #propPanel button {
     background: #3a3a3a; color: #eee;
     border: 1px solid #555; border-radius: 4px;
@@ -294,17 +279,127 @@
   }
   #propPanel button.active { background: #0d99ff; border-color: #0d99ff; color: white; }
   #propPanel button:hover { background: #4a4a4a; }
+  #propPanel button.code-btn {
+    background: #f39c12; border-color: #f39c12;
+    color: white; font-weight: 600;
+  }
+  #propPanel button.code-btn:hover { background: #e67e22; }
+  #propPanel button.code-btn.has-code {
+    background: #27ae60; border-color: #27ae60;
+  }
+
+  /* ===== コードエディタモーダル ===== */
+  #codeModal {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 200000;
+  }
+  #codeModal.show { display: flex; }
+  .code-box {
+    background: #2a2a2a; border: 1px solid #444;
+    border-radius: 12px; width: 90%; max-width: 700px;
+    max-height: 85vh; display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  }
+  .code-head {
+    padding: 14px 18px; border-bottom: 1px solid #444;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .code-head h3 { font-size: 15px; }
+  .code-head .tabs { display: flex; gap: 4px; }
+  .code-head .tabs button {
+    background: #3a3a3a; color: #ccc;
+    border: none; padding: 6px 12px;
+    border-radius: 4px; font-size: 12px; cursor: pointer;
+  }
+  .code-head .tabs button.active {
+    background: #0d99ff; color: white;
+  }
+  .code-head .close-btn {
+    background: transparent; border: none;
+    color: #999; font-size: 24px; cursor: pointer;
+    padding: 0 4px; line-height: 1;
+  }
+  .code-body {
+    padding: 16px 18px; overflow-y: auto; flex: 1;
+  }
+  .code-help {
+    font-size: 12px; color: #888; margin-bottom: 12px;
+    background: #1a1a1a; padding: 10px 12px;
+    border-radius: 6px; border-left: 3px solid #f39c12;
+    line-height: 1.6;
+  }
+  .code-help code {
+    background: #333; padding: 1px 5px;
+    border-radius: 3px; color: #6cc; font-size: 11px;
+  }
+  #codeTextarea {
+    width: 100%; min-height: 280px;
+    background: #1a1a1a; color: #d4d4d4;
+    border: 1px solid #444; border-radius: 6px;
+    padding: 12px; font-family: "Consolas", "Monaco", monospace;
+    font-size: 13px; line-height: 1.5;
+    resize: vertical; outline: none;
+  }
+  #codeTextarea:focus { border-color: #0d99ff; }
+  .code-foot {
+    padding: 12px 18px; border-top: 1px solid #444;
+    display: flex; justify-content: space-between;
+    align-items: center; gap: 10px;
+  }
+  .code-foot .examples {
+    display: flex; gap: 6px; flex-wrap: wrap; flex: 1;
+  }
+  .code-foot .examples button {
+    background: #3a3a3a; color: #ccc;
+    border: 1px solid #555; padding: 4px 10px;
+    border-radius: 4px; font-size: 11px; cursor: pointer;
+  }
+  .code-foot .examples button:hover { background: #4a4a4a; color: white; }
+  .code-foot .actions { display: flex; gap: 8px; }
+  .code-foot .actions button {
+    border: none; padding: 8px 16px;
+    border-radius: 6px; font-size: 13px;
+    font-weight: 600; cursor: pointer;
+  }
+  .code-foot .actions button.cancel {
+    background: #3a3a3a; color: #eee;
+  }
+  .code-foot .actions button.save {
+    background: #0d99ff; color: white;
+  }
+  .code-foot .actions button.remove {
+    background: #c0392b; color: white;
+  }
+  .code-foot .actions button:hover { filter: brightness(1.15); }
+
+  /* ===== スクリプト実行結果通知 ===== */
+  #scriptLog {
+    position: fixed; bottom: 100px; right: 20px;
+    width: 320px; max-height: 200px; overflow-y: auto;
+    background: rgba(20,20,20,0.95);
+    border: 1px solid #444; border-radius: 8px;
+    padding: 10px 12px; font-family: monospace;
+    font-size: 11px; color: #ccc;
+    z-index: 10003; display: none;
+  }
+  #scriptLog.show { display: block; }
+  #scriptLog .log-line { padding: 2px 0; border-bottom: 1px solid #333; }
+  #scriptLog .log-line.error { color: #e74c3c; }
+  #scriptLog .log-line.log { color: #6cc; }
+  #scriptLog .log-head {
+    font-size: 10px; color: #999;
+    margin-bottom: 4px; text-transform: uppercase;
+  }
 
   /* ===== スラッシュメニュー ===== */
   #slashMenu {
-    position: fixed;
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 8px;
+    position: fixed; background: #2a2a2a;
+    border: 1px solid #444; border-radius: 8px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-    z-index: 60000;
-    min-width: 280px; max-height: 400px;
-    overflow-y: auto;
+    z-index: 60000; min-width: 280px;
+    max-height: 400px; overflow-y: auto;
     display: none;
   }
   #slashMenu.show { display: block; }
@@ -332,22 +427,17 @@
   .si-desc { font-size: 11px; color: #999; margin-top: 2px; }
   .si-cmd {
     font-size: 11px; color: #0d99ff;
-    font-family: monospace;
-    background: #1a1a1a;
+    font-family: monospace; background: #1a1a1a;
     padding: 2px 6px; border-radius: 3px;
   }
 
-  /* ===== チャット履歴パネル ===== */
+  /* ===== チャット ===== */
   #chatPanel {
-    position: fixed;
-    right: 20px; bottom: 20px;
+    position: fixed; right: 20px; bottom: 20px;
     width: 320px; height: 420px;
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 10px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    display: none; flex-direction: column;
-    z-index: 55000;
+    background: #2a2a2a; border: 1px solid #444;
+    border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    display: none; flex-direction: column; z-index: 55000;
   }
   #chatPanel.show { display: flex; }
   .chat-head {
@@ -365,8 +455,7 @@
   }
   .chat-msg {
     padding: 6px 10px; border-radius: 8px;
-    background: #3a3a3a; max-width: 85%;
-    word-wrap: break-word;
+    background: #3a3a3a; max-width: 85%; word-wrap: break-word;
   }
   .chat-msg.mine { background: #0d99ff; align-self: flex-end; }
   .chat-msg .cm-author {
@@ -391,7 +480,7 @@
     cursor: pointer; font-size: 13px; font-weight: 600;
   }
 
-  /* ===== ユーザー・ステータス ===== */
+  /* ===== ステータス・ユーザー ===== */
   #status {
     position: absolute; bottom: 12px; left: 12px;
     font-size: 12px; color: #555;
@@ -467,9 +556,7 @@
     font-size: 11px; cursor: pointer;
     font-weight: 600; white-space: nowrap;
   }
-  .user-row .ubtn:hover { background: #e74c3c; }
   .user-row .ubtn.unban { background: #27ae60; }
-  .user-row .ubtn.unban:hover { background: #2ecc71; }
   .user-row.banned { opacity: 0.7; }
   .badge-ban, .badge-admin {
     color: white; font-size: 10px;
@@ -478,7 +565,7 @@
   .badge-ban { background: #c0392b; }
   .badge-admin { background: #d35400; }
 
-  /* ===== BAN画面 ===== */
+  /* ===== BAN ===== */
   #banScreen {
     position: fixed; inset: 0;
     background: #000; color: #fff;
@@ -500,8 +587,6 @@
     transition: opacity 0.3s; z-index: 100;
   }
   #hint.show { opacity: 1; }
-
-  /* ===== ペーストヒント ===== */
   #pasteHint {
     position: fixed; bottom: 80px; left: 50%;
     transform: translateX(-50%);
@@ -509,8 +594,7 @@
     color: white; padding: 8px 16px;
     border-radius: 20px; font-size: 13px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 10002; display: none;
-    font-weight: 600;
+    z-index: 10002; display: none; font-weight: 600;
   }
   #pasteHint.show { display: block; }
 </style>
@@ -544,6 +628,7 @@
   <button id="slashBtn">/ コマンド</button>
   <button id="chatBtn">💬 履歴</button>
   <button id="clearBtn">🗑 全消去</button>
+  <button id="logBtn" title="スクリプトログ">📜 ログ</button>
   <span style="border-left:1px solid #555; height:20px; margin:0 4px"></span>
   <button id="adminBtn" style="display:none">👑 管理</button>
   <div id="users" style="margin-left:8px"></div>
@@ -557,7 +642,7 @@
   </div>
 </div>
 
-<!-- 自分の吹き出し入力 -->
+<!-- 自分の吹き出し -->
 <div id="myBubble">
   <div class="bubble-wrap">
     <input id="myBubbleInput" placeholder="メッセージ... (Enter送信)" maxlength="200">
@@ -568,6 +653,42 @@
 
 <!-- プロパティパネル -->
 <div id="propPanel"></div>
+
+<!-- コードエディタ -->
+<div id="codeModal">
+  <div class="code-box">
+    <div class="code-head">
+      <h3>📜 スクリプトエディタ</h3>
+      <div class="tabs">
+        <button data-tab="html" class="active">HTML</button>
+        <button data-tab="css">CSS</button>
+        <button data-tab="js">JS</button>
+      </div>
+      <button class="close-btn" id="codeClose">×</button>
+    </div>
+    <div class="code-body">
+      <div class="code-help" id="codeHelp">
+        <strong>💡 使い方:</strong> このコードは<strong>サンドボックス化されたiframe</strong>内で実行されます。
+        親ページにはアクセスできません。<br>
+        <code>parent.postMessage({type:'notify', text:'Hello'}, '*')</code> で通知を送れます。
+      </div>
+      <textarea id="codeTextarea" spellcheck="false"></textarea>
+    </div>
+    <div class="code-foot">
+      <div class="examples">
+        <button data-ex="button">🔘 ボタン</button>
+        <button data-ex="hover">✨ ホバー</button>
+        <button data-ex="counter">🔢 カウンター</button>
+        <button data-ex="clock">⏰ 時計</button>
+      </div>
+      <div class="actions">
+        <button class="remove" id="codeRemove">削除</button>
+        <button class="cancel" id="codeCancel">キャンセル</button>
+        <button class="save" id="codeSave">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="slashMenu"></div>
 
@@ -592,6 +713,11 @@
 </div>
 
 <div id="pasteHint">📋 画像を貼り付けました</div>
+
+<div id="scriptLog">
+  <div class="log-head">📜 スクリプトログ <span id="logClear" style="cursor:pointer;color:#0d99ff">クリア</span></div>
+  <div id="logBody"></div>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -638,7 +764,6 @@ let unsubscribers = [];
 let banUnsub = null;
 let usersUnsub = null;
 let chatUnsub = null;
-let bubbleUnsub = null;
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
 let currentDragId = null;
@@ -647,6 +772,10 @@ let selectedId = null;
 let bannedUsers = {};
 let allUsers = {};
 let isBanned = false;
+let editingCodeId = null;
+let editingCodeData = { html: '', css: '', js: '' };
+let currentCodeTab = 'html';
+let scriptLogLines = [];
 
 const canvas = document.getElementById('canvas');
 const statusEl = document.getElementById('status');
@@ -665,6 +794,10 @@ const propPanel = document.getElementById('propPanel');
 const myBubble = document.getElementById('myBubble');
 const myBubbleInput = document.getElementById('myBubbleInput');
 const pasteHint = document.getElementById('pasteHint');
+const codeModal = document.getElementById('codeModal');
+const codeTextarea = document.getElementById('codeTextarea');
+const scriptLog = document.getElementById('scriptLog');
+const logBody = document.getElementById('logBody');
 
 // ============ 定数 ============
 const COMMANDS = [
@@ -677,6 +810,7 @@ const COMMANDS = [
   { id: 'comment',  icon: '💬', name: 'コメント',    cmd: '/comment',  desc: '吹き出し' },
   { id: 'stamp',    icon: '⭐', name: 'スタンプ',    cmd: '/stamp',    desc: '絵文字' },
   { id: 'image',    icon: '🖼', name: '画像URL',     cmd: '/image',    desc: 'URLから' },
+  { id: 'button',   icon: '🔘', name: 'ボタン',      cmd: '/button',   desc: 'スクリプト付きボタン' },
   { id: 'chat',     icon: '💭', name: 'チャット',    cmd: '/chat',     desc: 'チャット開く' },
   { id: 'clear',    icon: '🗑', name: '全消去',      cmd: '/clear',    desc: '全要素削除' },
 ];
@@ -684,6 +818,93 @@ const COMMANDS = [
 const STICKY_COLORS = ['#fef08a','#fbcfe8','#bfdbfe','#bbf7d0','#fed7aa','#e9d5ff'];
 const SHAPE_COLORS  = ['#0d99ff','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'];
 const STAMPS        = ['⭐','❤️','👍','🎉','🔥','✨','💯','👀','🚀','🎨','💡','✅'];
+
+// スクリプト用テンプレート
+const CODE_TEMPLATES = {
+  button: {
+    html: `<button id="btn">クリック！</button>
+<p id="out"></p>`,
+    css: `body { margin:0; padding:8px; font-family:sans-serif; background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
+#btn {
+  padding: 12px 24px; background: #0d99ff; color: white;
+  border: none; border-radius: 8px; font-size: 16px;
+  font-weight: 600; cursor: pointer; transition: 0.2s;
+  box-shadow: 0 4px 12px rgba(13,153,255,0.3);
+}
+#btn:hover { background: #0b7fd9; transform: translateY(-2px); }
+#btn:active { transform: scale(0.95); }
+#out { margin-top: 8px; font-size: 14px; color: #222; }`,
+    js: `let count = 0;
+document.getElementById('btn').addEventListener('click', () => {
+  count++;
+  document.getElementById('out').textContent = 'クリック: ' + count;
+  parent.postMessage({ type: 'notify', text: 'ボタンが押されました！ (' + count + '回)' }, '*');
+});`
+  },
+  hover: {
+    html: `<div id="box">
+  <span id="icon">🎁</span>
+  <div id="text">カーソルを合わせて</div>
+</div>`,
+    css: `body { margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:transparent; font-family:sans-serif; }
+#box {
+  padding: 16px 24px; background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 12px; color: white; text-align: center;
+  transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+  cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+#icon { font-size: 32px; display: block; transition: 0.4s; }
+#text { font-size: 13px; margin-top: 4px; }
+#box:hover {
+  transform: scale(1.15) rotate(-3deg);
+  box-shadow: 0 12px 32px rgba(102,126,234,0.6);
+}
+#box:hover #icon { transform: rotate(360deg) scale(1.3); }`,
+    js: `document.getElementById('box').addEventListener('mouseenter', () => {
+  parent.postMessage({ type: 'notify', text: '🎁 ホバー中...' }, '*');
+});`
+  },
+  counter: {
+    html: `<div id="wrap">
+  <div id="num">0</div>
+  <div>
+    <button class="btn" id="dec">−</button>
+    <button class="btn" id="inc">＋</button>
+  </div>
+</div>`,
+    css: `body { margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:transparent; font-family:sans-serif; }
+#wrap { text-align:center; background:white; padding:16px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.15); }
+#num { font-size:48px; font-weight:bold; color:#0d99ff; margin-bottom:8px; }
+.btn {
+  width:44px; height:44px; border-radius:50%; border:none;
+  background:#0d99ff; color:white; font-size:24px; font-weight:bold;
+  cursor:pointer; margin:0 4px; transition:0.2s;
+}
+.btn:hover { background:#0b7fd9; transform:scale(1.1); }
+.btn:active { transform:scale(0.9); }`,
+    js: `let n = 0;
+const num = document.getElementById('num');
+document.getElementById('inc').onclick = () => { n++; num.textContent = n; num.style.color = '#2ecc71'; };
+document.getElementById('dec').onclick = () => { n--; num.textContent = n; num.style.color = '#e74c3c'; };`
+  },
+  clock: {
+    html: `<div id="clock"></div>
+<div id="date"></div>`,
+    css: `body { margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background: linear-gradient(135deg, #1e1e2e, #2c2c3c); font-family:monospace; color:white; }
+#clock { font-size:42px; font-weight:bold; letter-spacing:2px; text-shadow:0 0 20px rgba(13,153,255,0.7); }
+#date { font-size:14px; color:#888; margin-top:8px; }`,
+    js: `function tick() {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  const ss = String(d.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = hh + ':' + mm + ':' + ss;
+  document.getElementById('date').textContent = d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+}
+tick();
+setInterval(tick, 1000);`
+  }
+};
 
 // ============ ユーティリティ ============
 function colorForUid(uid) {
@@ -700,18 +921,14 @@ function escapeHtml(s) {
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
 }
-function uid() { return 'u_' + Math.random().toString(36).slice(2, 10); }
 function newElemId() { return 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
 
 // ============ ログイン ============
 document.getElementById('googleLogin').addEventListener('click', async () => {
   const errEl = document.getElementById('loginError');
   errEl.textContent = '';
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (e) {
-    errEl.textContent = 'ログイン失敗: ' + e.message;
-  }
+  try { await signInWithPopup(auth, provider); }
+  catch (e) { errEl.textContent = 'ログイン失敗: ' + e.message; }
 });
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -720,7 +937,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   location.reload();
 });
 
-// ============ BAN画面 ============
+// ============ BAN ============
 function showBanScreen() {
   if (isBanned) return;
   isBanned = true;
@@ -731,6 +948,7 @@ function showBanScreen() {
   chatPanel.classList.remove('show');
   slashMenu.classList.remove('show');
   propPanel.classList.remove('show');
+  codeModal.classList.remove('show');
 
   setTimeout(() => {
     try {
@@ -750,10 +968,8 @@ onAuthStateChanged(auth, async (user) => {
     if (banUnsub) { banUnsub(); banUnsub = null; }
     if (usersUnsub) { usersUnsub(); usersUnsub = null; }
     if (chatUnsub) { chatUnsub(); chatUnsub = null; }
-    if (bubbleUnsub) { bubbleUnsub(); bubbleUnsub = null; }
     return;
   }
-
   currentUser = user;
   loginScreen.classList.add('hidden');
 
@@ -797,7 +1013,6 @@ function joinRoom(id) {
   roomId = id;
   statusEl.textContent = `📁 ${roomId}  |  ${currentUser.displayName || currentUser.email}`;
 
-  // カーソル
   const cursorsRef = ref(db, `rooms/${roomId}/cursors`);
   myCursorRef = ref(db, `rooms/${roomId}/cursors/${currentUser.uid}`);
   onDisconnect(myCursorRef).remove();
@@ -823,23 +1038,19 @@ function joinRoom(id) {
     });
   }));
 
-  // カーソルチャット吹き出し
-  const bubblesRef = ref(db, `rooms/${roomId}/bubbles`);
-  unsubscribers.push(onValue(bubblesRef, snap => {
+  // 吹き出し
+  unsubscribers.push(onValue(ref(db, `rooms/${roomId}/bubbles`), snap => {
     const data = snap.val() || {};
     canvas.querySelectorAll('.cursor-bubble').forEach(el => el.remove());
     Object.entries(data).forEach(([uid, b]) => {
-      if (uid === currentUser.uid) return;
-      if (!b.text) return;
+      if (uid === currentUser.uid || !b.text) return;
       const el = document.createElement('div');
       el.className = 'cursor-bubble';
-      el.dataset.uid = uid;
       el.style.transform = `translate(${b.x}px, ${b.y}px)`;
       el.innerHTML = `<div class="bubble" style="background:${b.color};color:white;border-color:${b.color}">
         <div style="font-size:10px;opacity:0.8;margin-bottom:2px;">${escapeHtml(b.name||'')}</div>
         ${escapeHtml(b.text)}
       </div>`;
-      el.querySelector('.bubble').style.setProperty('--bubble-color', b.color);
       canvas.appendChild(el);
     });
   }));
@@ -867,7 +1078,6 @@ function joinRoom(id) {
     });
   }));
 
-  // チャット履歴
   if (chatUnsub) chatUnsub();
   chatUnsub = onValue(ref(db, `rooms/${roomId}/chats`), snap => {
     renderChats(snap.val() || {});
@@ -891,60 +1101,89 @@ function createElementDOM(id, el) {
   div.style.left = el.x + 'px';
   div.style.top = el.y + 'px';
 
-  switch (el.type) {
-    case 'sticky':
-      div.classList.add('el-sticky');
-      div.style.background = el.color || pickColor(STICKY_COLORS);
-      div.textContent = el.content || '';
-      applyTextStyle(div, el);
-      break;
-    case 'text':
-      div.classList.add('el-text');
-      div.textContent = el.content || 'テキスト';
-      applyTextStyle(div, el);
-      break;
-    case 'rect':
-      div.classList.add('el-rect');
-      div.style.background = el.color || '#0d99ff';
-      if (el.width)  div.style.width  = el.width + 'px';
-      if (el.height) div.style.height = el.height + 'px';
-      break;
-    case 'circle':
-      div.classList.add('el-circle');
-      div.style.background = el.color || '#0d99ff';
-      if (el.width)  div.style.width  = el.width + 'px';
-      if (el.height) div.style.height = el.height + 'px';
-      break;
-    case 'triangle':
-      div.classList.add('el-triangle');
-      div.style.borderBottomColor = el.color || '#0d99ff';
-      break;
-    case 'arrow':
-      div.classList.add('el-arrow');
-      div.style.background = el.color || '#0d99ff';
-      div.style.color = el.color || '#0d99ff';
-      break;
-    case 'comment':
-      div.classList.add('el-comment');
-      div.textContent = el.content || 'コメント';
-      applyTextStyle(div, el);
-      break;
-    case 'stamp':
-      div.classList.add('el-stamp');
-      div.textContent = el.content || '⭐';
-      if (el.fontSize) div.style.fontSize = el.fontSize + 'px';
-      break;
-    case 'image':
-      div.classList.add('el-image');
-      div.innerHTML = `<img src="${el.content}" alt="" draggable="false">`;
-      if (el.width) div.style.width = el.width + 'px';
-      break;
-    default:
-      div.textContent = el.content || '';
+  const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
+
+  if (hasCode) {
+    // iframeレンダリング
+    div.classList.add('has-script');
+    if (el.width)  div.style.width  = el.width + 'px';
+    else div.style.width = '240px';
+    if (el.height) div.style.height = el.height + 'px';
+    else div.style.height = '160px';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'script-wrapper';
+    wrapper.innerHTML = `<iframe class="script-frame" sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe>`;
+    div.appendChild(wrapper);
+
+    const frame = wrapper.querySelector('iframe');
+    frame.srcdoc = buildIframeDoc(el.code, id);
+  } else {
+    // 通常レンダリング
+    switch (el.type) {
+      case 'sticky':
+        div.classList.add('el-sticky');
+        div.style.background = el.color || pickColor(STICKY_COLORS);
+        div.textContent = el.content || '';
+        applyTextStyle(div, el);
+        break;
+      case 'text':
+        div.classList.add('el-text');
+        div.textContent = el.content || 'テキスト';
+        applyTextStyle(div, el);
+        break;
+      case 'rect':
+        div.classList.add('el-rect');
+        div.style.background = el.color || '#0d99ff';
+        if (el.width)  div.style.width  = el.width + 'px';
+        if (el.height) div.style.height = el.height + 'px';
+        break;
+      case 'circle':
+        div.classList.add('el-circle');
+        div.style.background = el.color || '#0d99ff';
+        if (el.width)  div.style.width  = el.width + 'px';
+        if (el.height) div.style.height = el.height + 'px';
+        break;
+      case 'triangle':
+        div.classList.add('el-triangle');
+        div.style.borderBottomColor = el.color || '#0d99ff';
+        break;
+      case 'arrow':
+        div.classList.add('el-arrow');
+        div.style.background = el.color || '#0d99ff';
+        div.style.color = el.color || '#0d99ff';
+        break;
+      case 'comment':
+        div.classList.add('el-comment');
+        div.textContent = el.content || 'コメント';
+        applyTextStyle(div, el);
+        break;
+      case 'stamp':
+        div.classList.add('el-stamp');
+        div.textContent = el.content || '⭐';
+        if (el.fontSize) div.style.fontSize = el.fontSize + 'px';
+        break;
+      case 'image':
+        div.classList.add('el-image');
+        div.innerHTML = `<img src="${el.content}" alt="" draggable="false">`;
+        if (el.width) div.style.width = el.width + 'px';
+        break;
+      default:
+        div.textContent = el.content || '';
+    }
+  }
+
+  // スクリプトバッジ
+  if (hasCode) {
+    const badge = document.createElement('div');
+    badge.className = 'script-badge';
+    badge.textContent = '⚡';
+    badge.title = 'スクリプト有効';
+    div.appendChild(badge);
   }
 
   // リサイズハンドル
-  if (['sticky','text','comment','rect','circle','image'].includes(el.type)) {
+  if (['sticky','text','comment','rect','circle','image'].includes(el.type) || hasCode) {
     ['tl','tr','bl','br'].forEach(pos => {
       const h = document.createElement('div');
       h.className = 'resize-handle ' + pos;
@@ -969,6 +1208,51 @@ function createElementDOM(id, el) {
   return div;
 }
 
+function buildIframeDoc(code, elementId) {
+  const bridge = `
+    <script>
+      (function(){
+        const send = (type, msg) => {
+          try { parent.postMessage({ __script: true, elementId: '${elementId}', type, msg: String(msg) }, '*'); } catch(e){}
+        };
+        ['log','warn','error','info'].forEach(k => {
+          const orig = console[k];
+          console[k] = (...args) => {
+            try { orig.apply(console, args); } catch(e){}
+            send(k, args.map(a => {
+              try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
+              catch(e){ return '[object]'; }
+            }).join(' '));
+          };
+        });
+        window.addEventListener('error', e => send('error', e.message + ' @line ' + e.lineno));
+        window.parent.postMessage({ __script: true, elementId: '${elementId}', type: 'ready', msg: 'loaded' }, '*');
+      })();
+    <\/script>
+  `;
+
+  const wrappedJS = `
+    try {
+      ${code.js || ''}
+    } catch (err) {
+      console.error('Script error:', err.message);
+    }
+  `;
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8">${bridge}
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; }
+  body { font-family: -apple-system, sans-serif; }
+  ${code.css || ''}
+</style>
+</head>
+<body>
+${code.html || ''}
+<script>(function(){ ${wrappedJS} })();<\/script>
+</body></html>`;
+}
+
 function applyTextStyle(dom, el) {
   if (el.fontSize) dom.style.fontSize = el.fontSize + 'px';
   if (el.color) dom.style.color = el.color;
@@ -984,6 +1268,28 @@ function updateElementDOM(id, el) {
   if (el.width)  dom.style.width  = el.width + 'px';
   if (el.height) dom.style.height = el.height + 'px';
 
+  const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
+  const hadCode = dom.classList.contains('has-script');
+
+  // コードの有無が変わったら再生成
+  if (hasCode !== hadCode) {
+    const newDom = createElementDOM(id, el);
+    dom.replaceWith(newDom);
+    elementRefs[id] = newDom;
+    return;
+  }
+
+  if (hasCode) {
+    // iframeを更新
+    const frame = dom.querySelector('.script-frame');
+    if (frame) {
+      const newDoc = buildIframeDoc(el.code, id);
+      if (frame.srcdoc !== newDoc) frame.srcdoc = newDoc;
+    }
+    return;
+  }
+
+  // 通常要素の更新
   if ((el.type === 'sticky' || el.type === 'text' || el.type === 'comment') &&
       dom.textContent !== el.content && !dom.isContentEditable) {
     dom.textContent = el.content || '';
@@ -1007,9 +1313,26 @@ function updateElementDOM(id, el) {
 
 // ============ ドラッグ ============
 function onElementMouseDown(e) {
+  // iframe内クリックは無視（iframeが処理する）
   if (e.target.classList.contains('resize-handle')) return;
   if (e.target.classList.contains('delete-btn')) return;
+
   const div = e.currentTarget;
+  const isScript = div.classList.contains('has-script');
+  // スクリプト要素は alt押しながら or 右上×ボタン or リサイズ時のみドラッグ
+  if (isScript) {
+    // 上部10pxのドラッグハンドル領域のみ
+    const rect = div.getBoundingClientRect();
+    if (e.clientY - rect.top > 10) {
+      // 要素選択だけして、ドラッグしない
+      selectedId = div.dataset.id;
+      document.querySelectorAll('.element').forEach(d => d.classList.remove('selected'));
+      div.classList.add('selected');
+      showPropPanel(div.dataset.id);
+      return;
+    }
+  }
+
   if (div.querySelector('[contenteditable="true"]') === document.activeElement) return;
 
   e.stopPropagation();
@@ -1043,10 +1366,8 @@ canvas.addEventListener('mousemove', e => {
       const name = currentUser.displayName || currentUser.email.split('@')[0];
       const color = colorForUid(currentUser.uid);
       set(myCursorRef, { x, y, name, color, timestamp: now }).catch(()=>{});
-      // 吹き出し位置も更新
       const bubblesRef = ref(db, `rooms/${roomId}/bubbles/${currentUser.uid}`);
       update(bubblesRef, { x, y, name, color }).catch(()=>{});
-      // 自分の吹き出し位置
       myBubble.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
     }
   }
@@ -1127,6 +1448,11 @@ function onElementDblClick(e) {
   const id = div.dataset.id;
   const el = elements[id];
   if (!el) return;
+  if (div.classList.contains('has-script')) {
+    // スクリプト要素はコードエディタを開く
+    openCodeEditor(id);
+    return;
+  }
   if (!['sticky','text','comment'].includes(el.type)) return;
   if (div.contentEditable === 'true') return;
 
@@ -1144,8 +1470,7 @@ function onElementDblClick(e) {
     div.contentEditable = 'false';
     div.removeEventListener('blur', finish);
     div.removeEventListener('keydown', onKey);
-    const newText = div.textContent;
-    update(ref(db, `rooms/${roomId}/elements/${id}`), { content: newText }).catch(()=>{});
+    update(ref(db, `rooms/${roomId}/elements/${id}`), { content: div.textContent }).catch(()=>{});
   };
   const onKey = (ev) => {
     if (ev.key === 'Escape') { ev.preventDefault(); div.blur(); }
@@ -1161,38 +1486,43 @@ function onElementDblClick(e) {
 function showPropPanel(id) {
   const el = elements[id];
   if (!el) { propPanel.classList.remove('show'); return; }
-
   propPanel.classList.add('show');
   propPanel.innerHTML = '';
 
+  const hasCode = el.code && (el.code.html || el.code.css || el.code.js);
   const isTextType = ['sticky','text','comment'].includes(el.type);
   const isShapeType = ['rect','circle','triangle','arrow'].includes(el.type);
   const isSticky = el.type === 'sticky';
   const isStamp = el.type === 'stamp';
 
+  // --- スクリプトボタン ---
+  const gScript = document.createElement('div');
+  gScript.className = 'pp-group';
+  const codeBtn = document.createElement('button');
+  codeBtn.className = 'code-btn' + (hasCode ? ' has-code' : '');
+  codeBtn.textContent = hasCode ? '⚡ コード編集' : '⚡ コード追加';
+  codeBtn.title = 'スクリプトを埋め込む';
+  codeBtn.addEventListener('click', () => openCodeEditor(id));
+  gScript.appendChild(codeBtn);
+  propPanel.appendChild(gScript);
+
   // --- 色 ---
-  if (isTextType || isShapeType || isSticky) {
+  if (!hasCode && (isTextType || isShapeType || isSticky)) {
     const g = document.createElement('div');
     g.className = 'pp-group';
     g.innerHTML = `<label>色</label>`;
     const input = document.createElement('input');
     input.type = 'color';
-    // 付箋・図形は背景色、テキスト系は文字色
-    if (isSticky || isShapeType) {
-      input.value = rgbToHex(el.color || '#0d99ff');
-    } else {
-      input.value = rgbToHex(el.color || '#222222');
-    }
+    input.value = rgbToHex((isSticky || isShapeType) ? (el.color || '#0d99ff') : (el.color || '#222222'));
     input.addEventListener('input', () => {
-      const target = (isSticky || isShapeType) ? 'background' : 'color';
       update(ref(db, `rooms/${roomId}/elements/${id}`), { color: input.value });
     });
     g.appendChild(input);
     propPanel.appendChild(g);
   }
 
-  // --- 文字サイズ ---
-  if (isTextType || isStamp) {
+  // --- サイズ ---
+  if (!hasCode && (isTextType || isStamp)) {
     const g = document.createElement('div');
     g.className = 'pp-group';
     g.innerHTML = `<label>サイズ</label>`;
@@ -1208,10 +1538,9 @@ function showPropPanel(id) {
   }
 
   // --- 太字・斜体 ---
-  if (isTextType) {
+  if (!hasCode && isTextType) {
     const g = document.createElement('div');
     g.className = 'pp-group';
-
     const boldBtn = document.createElement('button');
     boldBtn.textContent = 'B';
     boldBtn.style.fontWeight = 'bold';
@@ -1219,7 +1548,6 @@ function showPropPanel(id) {
     boldBtn.addEventListener('click', () => {
       update(ref(db, `rooms/${roomId}/elements/${id}`), { bold: !el.bold });
     });
-
     const italicBtn = document.createElement('button');
     italicBtn.textContent = 'I';
     italicBtn.style.fontStyle = 'italic';
@@ -1227,14 +1555,13 @@ function showPropPanel(id) {
     italicBtn.addEventListener('click', () => {
       update(ref(db, `rooms/${roomId}/elements/${id}`), { italic: !el.italic });
     });
-
     g.appendChild(boldBtn);
     g.appendChild(italicBtn);
     propPanel.appendChild(g);
   }
 
-  // --- スタンプ変更 ---
-  if (isStamp) {
+  // --- スタンプ ---
+  if (!hasCode && isStamp) {
     const g = document.createElement('div');
     g.className = 'pp-group';
     g.innerHTML = `<label>絵文字</label>`;
@@ -1242,25 +1569,9 @@ function showPropPanel(id) {
     input.type = 'text';
     input.value = el.content || '⭐';
     input.maxLength = 4;
-    input.style.cssText = 'width:50px;background:#1a1a1a;color:#eee;border:1px solid #555;border-radius:4px;padding:5px;font-size:16px;text-align:center;';
+    input.style.cssText = 'width:50px;text-align:center;font-size:16px;';
     input.addEventListener('change', () => {
       update(ref(db, `rooms/${roomId}/elements/${id}`), { content: input.value || '⭐' });
-    });
-    g.appendChild(input);
-    propPanel.appendChild(g);
-  }
-
-  // --- 画像URL ---
-  if (el.type === 'image') {
-    const g = document.createElement('div');
-    g.className = 'pp-group';
-    g.innerHTML = `<label>URL</label>`;
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = el.content || '';
-    input.style.cssText = 'width:200px;background:#1a1a1a;color:#eee;border:1px solid #555;border-radius:4px;padding:5px;font-size:12px;';
-    input.addEventListener('change', () => {
-      update(ref(db, `rooms/${roomId}/elements/${id}`), { content: input.value });
     });
     g.appendChild(input);
     propPanel.appendChild(g);
@@ -1293,7 +1604,7 @@ function showPropPanel(id) {
   dupBtn.title = '複製';
   dupBtn.addEventListener('click', async () => {
     const newId = newElemId();
-    const copy = { ...el };
+    const copy = JSON.parse(JSON.stringify(el));
     copy.x = (el.x || 0) + 20;
     copy.y = (el.y || 0) + 20;
     await set(ref(db, `rooms/${roomId}/elements/${newId}`), copy);
@@ -1316,6 +1627,89 @@ canvas.addEventListener('click', (e) => {
     propPanel.classList.remove('show');
     hideSlashMenu();
   }
+});
+
+// ============ コードエディタ ============
+function openCodeEditor(id) {
+  editingCodeId = id;
+  const el = elements[id];
+  if (!el) return;
+  editingCodeData = {
+    html: (el.code && el.code.html) || '',
+    css:  (el.code && el.code.css)  || '',
+    js:   (el.code && el.code.js)   || ''
+  };
+
+  // タブ初期化
+  currentCodeTab = 'html';
+  document.querySelectorAll('.code-head .tabs button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === 'html');
+  });
+  codeTextarea.value = editingCodeData.html;
+
+  codeModal.classList.add('show');
+  codeTextarea.focus();
+}
+
+document.querySelectorAll('.code-head .tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    // 現在のタブを保存
+    editingCodeData[currentCodeTab] = codeTextarea.value;
+    currentCodeTab = btn.dataset.tab;
+    document.querySelectorAll('.code-head .tabs button').forEach(b => {
+      b.classList.toggle('active', b === btn);
+    });
+    codeTextarea.value = editingCodeData[currentCodeTab] || '';
+  });
+});
+
+codeTextarea.addEventListener('input', () => {
+  editingCodeData[currentCodeTab] = codeTextarea.value;
+});
+
+document.getElementById('codeClose').addEventListener('click', () => closeCodeEditor());
+document.getElementById('codeCancel').addEventListener('click', () => closeCodeEditor());
+
+document.getElementById('codeSave').addEventListener('click', async () => {
+  if (!editingCodeId || !roomId) return;
+  editingCodeData[currentCodeTab] = codeTextarea.value;
+  await update(ref(db, `rooms/${roomId}/elements/${editingCodeId}`), {
+    code: editingCodeData,
+    // デフォルトサイズを確保
+    width: elements[editingCodeId].width || 240,
+    height: elements[editingCodeId].height || 160
+  });
+  closeCodeEditor();
+  showHint('⚡ スクリプトを保存しました');
+});
+
+document.getElementById('codeRemove').addEventListener('click', async () => {
+  if (!editingCodeId || !roomId) return;
+  if (!confirm('スクリプトを削除しますか？')) return;
+  await remove(ref(db, `rooms/${roomId}/elements/${editingCodeId}/code`));
+  closeCodeEditor();
+  showHint('スクリプトを削除');
+});
+
+function closeCodeEditor() {
+  codeModal.classList.remove('show');
+  editingCodeId = null;
+  codeTextarea.value = '';
+}
+
+// テンプレート
+document.querySelectorAll('.code-foot .examples button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const key = btn.dataset.ex;
+    const tpl = CODE_TEMPLATES[key];
+    if (!tpl) return;
+    editingCodeData = JSON.parse(JSON.stringify(tpl));
+    currentCodeTab = 'html';
+    document.querySelectorAll('.code-head .tabs button').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === 'html');
+    });
+    codeTextarea.value = editingCodeData.html;
+  });
 });
 
 // ============ 要素追加 ============
@@ -1366,12 +1760,24 @@ async function addElement(type, opts = {}) {
       payload = { ...base, content: url };
       break;
     }
+    case 'button': {
+      payload = {
+        ...base,
+        type: 'rect',
+        color: '#0d99ff',
+        width: 240,
+        height: 160,
+        code: JSON.parse(JSON.stringify(CODE_TEMPLATES.button))
+      };
+      break;
+    }
     default:
       return;
   }
 
   const newRef = push(ref(db, `rooms/${roomId}/elements`));
   await set(newRef, payload);
+  if (type === 'button') showHint('🔘 ボタン追加。ダブルクリックでコード編集');
 }
 
 // ============ スラッシュメニュー ============
@@ -1432,6 +1838,7 @@ async function executeCommand(id) {
     case 'comment':  await addElement('comment'); showHint('💬 ダブルクリックで編集'); break;
     case 'stamp':    await addElement('stamp'); break;
     case 'image':    await addElement('image'); break;
+    case 'button':   await addElement('button'); break;
     case 'chat':     toggleChat(true); break;
     case 'clear':
       if (confirm('全要素を削除しますか？')) remove(ref(db, `rooms/${roomId}/elements`));
@@ -1452,10 +1859,69 @@ function showPasteHint(msg) {
   window._pasteHintTimer = setTimeout(() => pasteHint.classList.remove('show'), 1500);
 }
 
+// ============ スクリプトからのメッセージ受信 ============
+window.addEventListener('message', (e) => {
+  const d = e.data;
+  if (!d) return;
+
+  if (d.__script) {
+    // スクリプトログ
+    if (d.type === 'ready') return;
+    addLog(d.type, d.msg);
+  } else if (d.type === 'notify') {
+    // スクリプトからの通知
+    showHint('⚡ ' + d.text);
+  }
+});
+
+function addLog(type, msg) {
+  scriptLogLines.push({ type, msg, time: Date.now() });
+  if (scriptLogLines.length > 100) scriptLogLines.shift();
+  renderLogs();
+  scriptLog.classList.add('show');
+  clearTimeout(window._logHideTimer);
+  window._logHideTimer = setTimeout(() => {
+    if (!scriptLog.matches(':hover')) scriptLog.classList.remove('show');
+  }, 5000);
+}
+
+function renderLogs() {
+  logBody.innerHTML = scriptLogLines.map(l => `
+    <div class="log-line ${l.type}">[${l.type}] ${escapeHtml(l.msg)}</div>
+  `).join('');
+  logBody.scrollTop = logBody.scrollHeight;
+}
+
+document.getElementById('logClear').addEventListener('click', () => {
+  scriptLogLines = [];
+  renderLogs();
+  scriptLog.classList.remove('show');
+});
+
+document.getElementById('logBtn').addEventListener('click', () => {
+  scriptLog.classList.toggle('show');
+});
+
 // ============ キーボード ============
 document.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase();
   const inEditable = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
+
+  // コードモーダルが開いているとき
+  if (codeModal.classList.contains('show')) {
+    if (e.key === 'Escape') { e.preventDefault(); closeCodeEditor(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('codeSave').click();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      document.getElementById('codeSave').click();
+      return;
+    }
+    return;
+  }
 
   if (slashMenu.classList.contains('show')) {
     if (e.key === 'Escape') { e.preventDefault(); hideSlashMenu(); return; }
@@ -1493,9 +1959,7 @@ document.addEventListener('keydown', (e) => {
     toggleChat();
   }
 
-  // スペース長押しで吹き出しチャット開始（FigJam風）
   if (e.key === ' ' && !e.repeat && !myBubble.classList.contains('show')) {
-    // スペースはスクロール防止
     e.preventDefault();
     openMyBubble();
   }
@@ -1503,22 +1967,21 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === '/' && !e.target.isContentEditable &&
-      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' &&
+      !codeModal.classList.contains('show')) {
     e.preventDefault();
     showSlashMenu(window.innerWidth / 2 - 140, window.innerHeight / 2 - 150);
   }
 });
 
-// ============ 自分の吹き出しチャット ============
+// ============ 吹き出し ============
 function openMyBubble() {
-  // マウス位置 or 中央
   const x = window._lastMouseX || window.innerWidth / 2;
   const y = window._lastMouseY || window.innerHeight / 2;
   myBubble.style.transform = `translate(${x}px, ${y}px)`;
   myBubble.classList.add('show');
   setTimeout(() => myBubbleInput.focus(), 50);
 
-  // Firebase に吹き出し位置を登録
   const bubblesRef = ref(db, `rooms/${roomId}/bubbles/${currentUser.uid}`);
   set(bubblesRef, {
     x: x - canvas.getBoundingClientRect().left,
@@ -1534,12 +1997,9 @@ function openMyBubble() {
 function sendBubble() {
   const text = myBubbleInput.value.trim();
   if (!text) { closeBubble(); return; }
-
-  // 自分の吹き出し表示を更新
   const bubblesRef = ref(db, `rooms/${roomId}/bubbles/${currentUser.uid}`);
   update(bubblesRef, { text, timestamp: Date.now() }).catch(()=>{});
 
-  // チャット履歴にも追加
   const msgRef = push(ref(db, `rooms/${roomId}/chats`));
   set(msgRef, {
     text,
@@ -1549,7 +2009,6 @@ function sendBubble() {
     timestamp: Date.now()
   }).catch(()=>{});
 
-  // 5秒後に吹き出しを消す
   setTimeout(() => {
     update(bubblesRef, { text: '' }).catch(()=>{});
   }, 5000);
@@ -1572,7 +2031,6 @@ myBubbleInput.addEventListener('keydown', (e) => {
 document.getElementById('myBubbleSend').addEventListener('click', sendBubble);
 document.getElementById('myBubbleClose').addEventListener('click', closeBubble);
 
-// マウス位置を記録
 document.addEventListener('mousemove', (e) => {
   window._lastMouseX = e.clientX;
   window._lastMouseY = e.clientY;
@@ -1581,8 +2039,8 @@ document.addEventListener('mousemove', (e) => {
 // ============ 画像ペースト ============
 document.addEventListener('paste', async (e) => {
   if (!roomId || !currentUser) return;
+  if (codeModal.classList.contains('show')) return;
   const tag = (e.target.tagName || '').toLowerCase();
-  // チャット入力中などは通常のペースト
   if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
 
   const items = e.clipboardData?.items || [];
@@ -1593,9 +2051,7 @@ document.addEventListener('paste', async (e) => {
       if (!file) continue;
       try {
         const dataUrl = await fileToDataURL(file);
-        // サイズチェック（Firebase は1MB程度まで安全）
         if (dataUrl.length > 900000) {
-          // 縮小
           const resized = await resizeImage(dataUrl, 1200, 0.85);
           await pasteImage(resized);
         } else {
@@ -1603,7 +2059,6 @@ document.addEventListener('paste', async (e) => {
         }
         showPasteHint('📋 画像を貼り付けました');
       } catch (err) {
-        console.error('画像ペーストエラー:', err);
         showPasteHint('❌ 画像の貼り付けに失敗');
       }
       return;
@@ -1651,7 +2106,7 @@ async function pasteImage(dataUrl) {
   });
 }
 
-// ============ ユーザー表示 ============
+// ============ ユーザー ============
 function renderUsers(cursorsData) {
   usersEl.innerHTML = '';
   Object.entries(cursorsData).forEach(([uid, cur]) => {
@@ -1708,7 +2163,6 @@ function renderChats(data) {
   const msgs = Object.entries(data)
     .map(([id, m]) => ({ id, ...m }))
     .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
   chatMessages.innerHTML = '';
   msgs.forEach(m => {
     const div = document.createElement('div');
@@ -1817,7 +2271,7 @@ function renderAdminPanel() {
 }
 
 console.log('%c🎨 FigmaDG', 'color:#0d99ff;font-size:20px;font-weight:bold');
-console.log('/ → コマンド | C → チャット履歴 | Space → カーソル吹き出し | Ctrl+V → 画像貼り付け');
+console.log('/ → コマンド | C → チャット | Space → 吹き出し | Ctrl+V → 画像 | 要素ダブルクリック → コード編集');
 </script>
 </body>
 </html>
