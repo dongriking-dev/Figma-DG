@@ -17,40 +17,32 @@
     transition: background 0.2s;
   }
   .download-btn:hover { background: #1d4ed8; }
-  .download-btn:disabled {
-    background: #9ca3af;
-    cursor: not-allowed;
-  }
-  #status {
-    margin-top: 12px;
-    font-size: 14px;
-    color: #374151;
-    min-height: 20px;
-  }
+  .download-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+  #status { margin-top: 12px; font-size: 14px; color: #374151; min-height: 20px; }
 </style>
 </head>
 <body>
 
-<button id="downloadBtn" class="download-btn">動画を3つダウンロード</button>
+<button id="downloadBtn" class="download-btn">動画を3回ダウンロード</button>
 <div id="status"></div>
 
 <script>
-  // ===== 設定エリア：ここを書き換える =====
-  const VIDEOS = [
-    { url: 'https://example.com/video1.mp4', filename: '動画1_高画質.mp4' },
-    { url: 'https://example.com/video2.mp4', filename: '動画2_高画質.mp4' },
-    { url: 'https://example.com/video3.mp4', filename: '動画3_高画質.mp4' }
-  ];
-  const INTERVAL_MS = 2000; // ダウンロード間隔（2秒）
-  // ========================================
+  // ===== 設定エリア =====
+  const VIDEO_URL = 'https://drive.google.com/uc?export=download&id=1bnP8DXVh9hK7eV7TheC8u7MjvB6Xld6E';
+  const DOWNLOAD_COUNT = 3;   // ダウンロードする回数
+  const INTERVAL_MS = 2000;   // 間隔（2秒）
+  // ======================
 
   const btn = document.getElementById('downloadBtn');
   const statusEl = document.getElementById('status');
 
-  function triggerDownload(url, filename) {
+  function triggerDownload(url, index) {
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    // Google Driveはdownload属性が効かない場合があるが、一応指定
+    a.download = `動画_${index}.mp4`;
+    a.target = '_blank';      // Driveの場合、別タブで開く方が確実
+    a.rel = 'noopener';
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
@@ -60,15 +52,11 @@
   btn.addEventListener('click', async () => {
     btn.disabled = true;
 
-    for (let i = 0; i < VIDEOS.length; i++) {
-      const video = VIDEOS[i];
+    for (let i = 1; i <= DOWNLOAD_COUNT; i++) {
+      triggerDownload(VIDEO_URL, i);
+      statusEl.textContent = `${i} / ${DOWNLOAD_COUNT} 回目をダウンロード開始…`;
 
-      // ダウンロード開始
-      triggerDownload(video.url, video.filename);
-      statusEl.textContent = `${i + 1} / ${VIDEOS.length} 個目をダウンロード開始…`;
-
-      // 最後の1個以外は2秒待機
-      if (i < VIDEOS.length - 1) {
+      if (i < DOWNLOAD_COUNT) {
         await new Promise(resolve => setTimeout(resolve, INTERVAL_MS));
       }
     }
